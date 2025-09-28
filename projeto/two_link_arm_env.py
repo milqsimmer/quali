@@ -29,7 +29,7 @@ class TwoLinkArmEnv(gym.Env):
         self.l1 = 0.5
         self.l2 = 0.5
 
-        self.offset_local = [0.25, 0, 0]
+        self.offset_local = [self.l2, 0, 0]
 
         # Observação: [theta1, theta2, target_x, target_y]
         self.observation_space = spaces.Box(
@@ -126,13 +126,12 @@ class TwoLinkArmEnv(gym.Env):
         )
 
     def _get_end_effector_pos(self):
-        link_state = p.getLinkState(
-            self.robot, self.link2, computeForwardKinematics=True
-        )
-        link_pos = link_state[0]
-        link_orient = link_state[1]
+        ls = p.getLinkState(self.robot, self.link2, computeForwardKinematics=True)
+        # use 4/5 se disponíveis; caso contrário, caia em 0/1
+        link_pos = ls[4] if len(ls) > 4 else ls[0]
+        link_ornt = ls[5] if len(ls) > 5 else ls[1]
         ee_pos, _ = p.multiplyTransforms(
-            link_pos, link_orient, self.offset_local, [0, 0, 0, 1]
+            link_pos, link_ornt, self.offset_local, [0, 0, 0, 1]
         )
         return ee_pos
 

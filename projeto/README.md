@@ -51,10 +51,19 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 
 
 ## Novo
-1. rodar treinos:
+1. rodar treinos e results:
+> treino
   ```python
   python train_rl.py --mode pure
   python train_rl.py --mode pirl
+  ```
+> eval
+  ```python
+  python eval_rl.py --mode pure --episodes 20 --print-episodes --render
+  ```
+  ou
+  ```python
+  python eval_rl.py --mode both --episodes 100
   ```
 
 2. Se o braço mal se mexer: aumente force no POSITION_CONTROL (em _apply_angles) ou reduza a escala de ação (±0.05).
