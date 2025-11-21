@@ -71,3 +71,9 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 3. Se trepidar: reduza a escala de ação (ex.: ±0.05) e aumente max_episode_steps para 300 (apenas teste).
 
 4. Se quiser “apimentar” o PIRL sem esforço: adicione um termo de suavidade (ex.: beta * (|Δθ1| + |Δθ2|)).
+
+
+Avaliação v2.0:
+  ```python
+  python eval_rl.py --mode both --episodes 100 --out results_torque.csv
+  ```

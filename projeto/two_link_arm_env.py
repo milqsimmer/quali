@@ -62,39 +62,48 @@ class TwoLinkArmEnv(gym.Env):
         return obs
 
     def step(self, action):
+        # atualiza ângulos com incremento da ação
         self.theta1 = np.clip(self.theta1 + action[0], -np.pi, np.pi)
         self.theta2 = np.clip(self.theta2 + action[1], -np.pi, np.pi)
 
+        # aplica ângulos e avança simulação
         self._apply_angles(self.theta1, self.theta2)
         p.stepSimulation()
 
+        # distância ponta–alvo no plano (x, y)
         end_effector_pos = self._get_end_effector_pos()
         dist = np.linalg.norm(
             np.array(end_effector_pos[:2]) - np.array(self.target_pos)
         )
 
+        # lê torques aplicados nas duas juntas
+        js = p.getJointStates(self.robot, [0, 1])
+        # appliedMotorTorque é o quarto elemento do tuple
+        tau1 = abs(js[0][3])
+        tau2 = abs(js[1][3])
+        tau_l1 = tau1 + tau2  # ||tau_t||_1 = |tau1| + |tau2|
+
         # ====== REWARD ======
         # RL puro: -distância + penalidade leve de ação
+        lam_a = 0.001
 
         if self.reward_mode == "pure":
-            lam_a = 0.001
             reward = -dist - lam_a * float(np.linalg.norm(action))
 
         # PIRL: -distância + penalidade de ação + penalidade de torque (informado por física)
         else:  # "pirl"
-            lam_a = 0.001
             alpha_tau = 0.0005  # ajuste fino depois
-            js = p.getJointStates(self.robot, [0, 1])
-            # appliedMotorTorque é o quarto elemento do tuple
-            tau1 = abs(js[0][3])
-            tau2 = abs(js[1][3])
-            tau_sum = tau1 + tau2
-            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_sum
+            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_l1
 
         done = dist < 0.05
 
         obs = self._get_obs()
-        info = {"distance": dist}
+        info = {
+            "distance": dist,
+            "tau1": tau1,
+            "tau2": tau2,
+            "tau_l1": tau_l1,
+        }
         return obs, reward, done, info
 
     def _create_target_visual(self):
