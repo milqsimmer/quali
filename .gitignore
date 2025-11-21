@@ -8,3 +8,4 @@
 /scara_bot.urdf
 /simple_arm.urdf
 /projeto/__pycache__
+*.zip
