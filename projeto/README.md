@@ -83,3 +83,8 @@ python train_rl.py --mode pirl --seed 1 --steps 300000
 python train_rl.py --mode pirl --seed 2 --steps 300000
 python train_rl.py --mode pirl --seed 3 --steps 300000
 python train_rl.py --mode pirl --seed 4 --steps 300000
+
+Avaliação v2.0:
+  ```python
+  python eval_rl.py --mode both --episodes 100 --out results_torque.csv
+  ```

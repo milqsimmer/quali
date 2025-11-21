@@ -29,11 +29,13 @@ def evaluate(
     ep_rows = []
     succ = 0
     dists, rets, lens = [], [], []
+    efforts = []  # lista de E_i por episódio
 
     for ep in range(episodes):
         obs = env.reset()
         done = False
         ep_ret, ep_len = 0.0, 0
+        ep_tau_sum = 0.0  # soma_t ||tau_t||_1 no episódio
         last_info = {}
 
         while not done:
@@ -42,30 +44,41 @@ def evaluate(
             ep_ret += reward
             ep_len += 1
             last_info = info
+
+            # acumula esforço de torque L1 no episódio
+            tau_l1 = float(info.get("tau_l1", np.nan))
+            if not np.isnan(tau_l1):
+                ep_tau_sum += tau_l1
+
             if render:
                 time.sleep(1 / 240.0)
 
         final_dist = float(last_info.get("distance", np.nan))
 
-        if print_episodes:
-            print(
-                f"[PURE] ep {ep+1:03d} | final_dist={final_dist:.4f} | return={ep_ret:.3f} | len={ep_len}"
-            )
+        if final_dist < 0.05:
+            succ += 1
+
+        # esforço médio em torque do episódio: E_i = (1/T_i) * sum_t ||tau_t||_1
+        if ep_len > 0:
+            E_i = ep_tau_sum / ep_len
+        else:
+            E_i = np.nan
 
         dists.append(final_dist)
         rets.append(ep_ret)
         lens.append(ep_len)
-        if final_dist < 0.05:  # mesmo critério de sucesso do treino
-            succ += 1
+        efforts.append(E_i)
 
         ep_rows.append(
             {
                 "mode": mode,
                 "episode": ep + 1,
                 "success": int(final_dist < 0.05),
-                "final_distance": final_dist,
+                "final_dist": final_dist,
                 "return": ep_ret,
                 "length": ep_len,
+                "mean_tau_l1": E_i,  # esforço médio em torque
+                "tau_l1_sum": ep_tau_sum,  # soma de ||tau_t||_1 no episódio (opcional)
             }
         )
 
@@ -81,6 +94,9 @@ def evaluate(
         "std_return": float(np.std(rets)),
         "mean_ep_len": float(np.mean(lens)),
         "std_ep_len": float(np.std(lens)),
+        "mean_tau_effort": float(np.nanmean(efforts)),
+        "std_tau_effort": float(np.nanstd(efforts)),
+        "median_tau_effort": float(np.nanmedian(efforts)),
     }
     return summary, ep_rows
 
@@ -114,6 +130,7 @@ def print_summary_table(summaries: list):
         "mean_final_dist",
         "mean_return",
         "mean_ep_len",
+        "mean_tau_effort",
     ]
     widths = [max(len(h), 14) for h in headers]
     line = " | ".join(h.ljust(w) for h, w in zip(headers, widths))
@@ -127,6 +144,7 @@ def print_summary_table(summaries: list):
             fmt(s["mean_final_dist"]),
             fmt(s["mean_return"]),
             fmt(s["mean_ep_len"]),
+            fmt(s.get("mean_tau_effort", float("nan"))),
         ]
         print(" | ".join(str(c).ljust(w) for c, w in zip(row, widths)))
 
