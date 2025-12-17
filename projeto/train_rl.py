@@ -12,15 +12,15 @@ parser.add_argument("--steps", type=int, default=300_000)
 parser.add_argument("--seed", type=int, default=0)
 args = parser.parse_args()
 
-env = TwoLinkArmEnv(render=False, reward_mode=args.mode)
+env = TwoLinkArmEnv(render=False, reward_mode=args.mode, seed=args.seed)
 env = TimeLimit(env, max_episode_steps=200)  # garante corte temporal
 env = Monitor(env)
 
 model = PPO(
     "MlpPolicy",
     env,
-    verbose=1,
     seed=args.seed,
+    verbose=1,
     learning_rate=3e-4,
     n_steps=2048,
     batch_size=256,
@@ -32,6 +32,6 @@ model = PPO(
 model.learn(total_timesteps=args.steps)
 
 os.makedirs(f"runs_{args.mode}", exist_ok=True)
-model.save(f"runs_{args.mode}/ppo_model.zip")
+model.save(f"runs_{args.mode}/ppo_model_seed{args.seed}.zip")
 env.close()
 print(f"[OK] Treino {args.mode} finalizado.")

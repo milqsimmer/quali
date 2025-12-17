@@ -1,17 +1,16 @@
+# two_link_arm_env.py
+
 import gym
+from gym.utils import seeding
 from gym import spaces
 import numpy as np
 import pybullet as p
 import pybullet_data
 import time
 
-""" 
-Se quiser um PIRL um pouquinho mais “rico” ainda sem mexer na dinâmica, pode somar um termo de variação de ângulo (suavidade): beta * (|Δθ1| + |Δθ2|). Mas o termo de torque aplicado já coloca “física” no objetivo com custo quase zero de implementação.
-"""
-
 
 class TwoLinkArmEnv(gym.Env):
-    def __init__(self, render=False, reward_mode="pure"):
+    def __init__(self, render=False, reward_mode="pure", seed: int | None = None):
         super(TwoLinkArmEnv, self).__init__()
         self.reward_mode = reward_mode
 
@@ -43,11 +42,17 @@ class TwoLinkArmEnv(gym.Env):
             low=np.array([-0.1, -0.1]), high=np.array([0.1, 0.1]), dtype=np.float32
         )
 
+        self.np_random, _ = seeding.np_random(seed)
+
         self.target_pos = None
         self.state = None
-        self.reset()
+        # self.reset()
 
-    def reset(self):
+    def reset(self, *, seed=None, options=None):
+
+        if seed is not None:
+            self.np_random, _ = seeding.np_random(seed)
+
         self.theta1 = 0.0
         self.theta2 = 0.0
 
@@ -119,10 +124,14 @@ class TwoLinkArmEnv(gym.Env):
             basePosition=[self.target_pos[0], self.target_pos[1], 0.1],
         )
 
+    def seed(self, seed=None):
+        self.np_random, _ = seeding.np_random(seed)
+        return [seed]
+
     def _sample_target(self):
         while True:
-            x = np.random.uniform(0.1, 0.9)
-            y = np.random.uniform(-0.5, 0.5)
+            x = self.np_random.uniform(0.1, 0.9)
+            y = self.np_random.uniform(-0.5, 0.5)
             if np.hypot(x, y) <= (self.l1 + self.l2):
                 return [x, y]
 
