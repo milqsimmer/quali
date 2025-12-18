@@ -10,9 +10,18 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--mode", choices=["pure", "pirl"], default="pure")
 parser.add_argument("--steps", type=int, default=300_000)
 parser.add_argument("--seed", type=int, default=0)
+parser.add_argument("--margin", type=float, default=0.02)
+parser.add_argument("--min_tip_dist", type=float, default=0.07)
+
 args = parser.parse_args()
 
-env = TwoLinkArmEnv(render=False, reward_mode=args.mode, seed=args.seed)
+env = TwoLinkArmEnv(
+    render=False,
+    reward_mode=args.mode,
+    seed=args.seed,
+    margin=args.margin,
+    min_tip_dist=args.min_tip_dist,
+)
 env = TimeLimit(env, max_episode_steps=200)  # garante corte temporal
 env = Monitor(env)
 

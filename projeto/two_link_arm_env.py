@@ -10,9 +10,25 @@ import time
 
 
 class TwoLinkArmEnv(gym.Env):
-    def __init__(self, render=False, reward_mode="pure", seed: int | None = None):
+    def __init__(
+        self,
+        render=False,
+        reward_mode="pure",
+        seed: int | None = None,
+        margin: float = 0.02,
+        min_tip_dist: float = 0.07,
+        phi_min: float = -np.pi / 2,
+        phi_max: float = np.pi / 2,
+    ):
         super(TwoLinkArmEnv, self).__init__()
         self.reward_mode = reward_mode
+
+        # ---- parâmetros do sampler (A2) ----
+        self.margin = float(margin)
+        self.min_tip_dist = float(min_tip_dist)
+        self.phi_min = float(phi_min)
+        self.phi_max = float(phi_max)
+        # ------------------------------------
 
         self.render_mode = render
         self.physicsClient = p.connect(p.GUI if render else p.DIRECT)
@@ -45,23 +61,28 @@ class TwoLinkArmEnv(gym.Env):
         self.np_random, _ = seeding.np_random(seed)
 
         self.target_pos = None
-        self.state = None
-        # self.reset()
 
     def reset(self, *, seed=None, options=None):
-
         if seed is not None:
             self.np_random, _ = seeding.np_random(seed)
 
         self.theta1 = 0.0
         self.theta2 = 0.0
 
-        self.target_pos = self._sample_target()
+        # zera estado físico das juntas
+        p.resetJointState(self.robot, 0, targetValue=0.0, targetVelocity=0.0)
+        p.resetJointState(self.robot, 1, targetValue=0.0, targetVelocity=0.0)
 
-        self._apply_angles(self.theta1, self.theta2)
+        # self._apply_angles(self.theta1, self.theta2)
         p.stepSimulation()
 
-        self._create_target_visual()  # ⬅️ Adiciona a bolinha vermelha visível no alvo
+        # posição inicial da ponta do braço
+        tip0 = np.array(self._get_end_effector_pos()[:2])
+
+        self.target_pos = self._sample_target(tip0)
+        self.d0 = float(np.linalg.norm(tip0 - np.array(self.target_pos)))
+
+        self._create_target_visual()  # Adiciona a bolinha vermelha (alvo)
 
         obs = self._get_obs()
         return obs
@@ -95,8 +116,8 @@ class TwoLinkArmEnv(gym.Env):
         if self.reward_mode == "pure":
             reward = -dist - lam_a * float(np.linalg.norm(action))
 
-        # PIRL: -distância + penalidade de ação + penalidade de torque (informado por física)
-        else:  # "pirl"
+        # PIRL: -distância + penalidade de ação + penalidade de torque
+        else:
             alpha_tau = 0.0005  # ajuste fino depois
             reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_l1
 
@@ -105,6 +126,7 @@ class TwoLinkArmEnv(gym.Env):
         obs = self._get_obs()
         info = {
             "distance": dist,
+            "d0": getattr(self, "d0", None),
             "tau1": tau1,
             "tau2": tau2,
             "tau_l1": tau_l1,
@@ -128,12 +150,21 @@ class TwoLinkArmEnv(gym.Env):
         self.np_random, _ = seeding.np_random(seed)
         return [seed]
 
-    def _sample_target(self):
+    def _sample_target(self, tip0, margin=0.02, min_tip_dist=0.07):
+        r_min = abs(self.l1 - self.l2) + margin
+        r_max = (self.l1 + self.l2) - margin
+
         while True:
-            x = self.np_random.uniform(0.1, 0.9)
-            y = self.np_random.uniform(-0.5, 0.5)
-            if np.hypot(x, y) <= (self.l1 + self.l2):
-                return [x, y]
+            u = self.np_random.uniform(0.0, 1.0)
+            r = np.sqrt(u * (r_max**2 - r_min**2) + r_min**2)
+
+            phi = self.np_random.uniform(-np.pi / 2, np.pi / 2)  # x > 0
+            x, y = r * np.cos(phi), r * np.sin(phi)
+
+            target = np.array([x, y])
+
+            if np.linalg.norm(target - tip0) >= min_tip_dist:
+                return [float(x), float(y)]
 
     def _apply_angles(self, theta1, theta2):
         p.setJointMotorControl2(

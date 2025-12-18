@@ -5,6 +5,7 @@ Este projeto simula um braço robótico com dois graus de liberdade (2-DOF) util
 ## 🔧 Estrutura do Robô
 
 O braço robótico é composto por:
+
 - Um link base fixo
 - Dois segmentos (`link1` e `link2`) conectados por juntas rotacionais
 - Um alvo (esfera vermelha) no espaço 3D
@@ -26,6 +27,7 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 - Geração de dados para imitation learning
 
 ## 📂 Estrutura
+
 ```
 ├── main.py # Código principal da simulação 
 ├── two_joint_robot.urdf # Modelo URDF do braço 
@@ -38,42 +40,66 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 1. Instale as dependências:
    ```bash
    pip install -r requirements.txt
-    ```
+   ```
 2. Execute a simulação:
-  ```python
+
+```python
   python main.py
-  ```
+```
 
 ## 🧠 Requisitos
+
 - Python 3.8+
 - PyBullet
 - NumPy
 
-
 ## Novo
+
 1. rodar treinos e results:
+
 > treino
-  ```python
+
+```python
   python train_rl.py --mode pure
   python train_rl.py --mode pirl
-  ```
+```
+
 > eval
-  ```python
+
+```python
   python eval_rl.py --mode pure --episodes 20 --print-episodes --render
-  ```
+```
+
   ou
-  ```python
+
+```python
   python eval_rl.py --mode both --episodes 100
-  ```
+```
 
 2. Se o braço mal se mexer: aumente force no POSITION_CONTROL (em _apply_angles) ou reduza a escala de ação (±0.05).
-
 3. Se trepidar: reduza a escala de ação (ex.: ±0.05) e aumente max_episode_steps para 300 (apenas teste).
-
 4. Se quiser “apimentar” o PIRL sem esforço: adicione um termo de suavidade (ex.: beta * (|Δθ1| + |Δθ2|)).
 
+Avaliação v2.0 (pré-qualificação):
 
-Avaliação v2.0:
-  ```python
+```python
   python eval_rl.py --mode both --episodes 100 --out results_torque.csv
-  ```
+```
+
+# Testes pós melhorias
+
+## Teste de amostras do alvo
+
+=== Teste A2: sampler de alvo ===
+Env: TwoLinkArmEnv (from two_link_arm_env)
+n=20000, seed=0
+l1=0.5000, l2=0.5000
+anel: r_min=0.0200, r_max=0.9800
+min_dist_tip0=0.0700
+ik_check=OFF
+
+Violação anel: 0/20000
+Violação min_dist: 0/20000
+
+r (min/mean/max) = 0.0204 / 0.6546 / 0.9799
+d_tip0 (min/mean/max) = 0.0712 / 0.7553 / 1.3884
