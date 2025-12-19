@@ -1,0 +1,56 @@
+[
+  {
+    "mode": "pure",
+    "train_seed": 1,
+    "episodes": 200,
+    "eval_seed_base": 1000,
+    "eval_seeds_range": [
+      1000,
+      1199
+    ],
+    "margin": 0.02,
+    "min_tip_dist": 0.07,
+    "phi_min": -1.57079632679,
+    "phi_max": 1.57079632679,
+    "max_steps": 200,
+    "success_tol": 0.05,
+    "success_rate": 0.44,
+    "mean_d0": 0.7930618415212455,
+    "std_d0": 0.28238357217881466,
+    "mean_final_dist": 0.13066992805278974,
+    "std_final_dist": 0.11360297440429443,
+    "mean_return": -32.947873828210525,
+    "std_return": 25.746924377093702,
+    "mean_ep_len": 123.545,
+    "std_ep_len": 86.4473711283345,
+    "mean_tau_effort": 7.3100309734751026,
+    "std_tau_effort": 5.7729697593963305
+  },
+  {
+    "mode": "pirl",
+    "train_seed": 1,
+    "episodes": 200,
+    "eval_seed_base": 1000,
+    "eval_seeds_range": [
+      1000,
+      1199
+    ],
+    "margin": 0.02,
+    "min_tip_dist": 0.07,
+    "phi_min": -1.57079632679,
+    "phi_max": 1.57079632679,
+    "max_steps": 200,
+    "success_tol": 0.05,
+    "success_rate": 0.325,
+    "mean_d0": 0.7914303393629605,
+    "std_d0": 0.28771964839439235,
+    "mean_final_dist": 0.23096738501122446,
+    "std_final_dist": 0.25024945935342247,
+    "mean_return": -49.59133611144486,
+    "std_return": 44.64875276707038,
+    "mean_ep_len": 142.405,
+    "std_ep_len": 83.27755384856114,
+    "mean_tau_effort": 7.206987991884378,
+    "std_tau_effort": 7.435598640713848
+  }
+]

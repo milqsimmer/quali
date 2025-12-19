@@ -80,15 +80,17 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 3. Se trepidar: reduza a escala de ação (ex.: ±0.05) e aumente max_episode_steps para 300 (apenas teste).
 4. Se quiser “apimentar” o PIRL sem esforço: adicione um termo de suavidade (ex.: beta * (|Δθ1| + |Δθ2|)).
 
-Avaliação v2.0 (pré-qualificação):
+## Avaliação v2.0 (pré-qualificação):
 
 ```python
   python eval_rl.py --mode both --episodes 100 --out results_torque.csv
 ```
 
-# Testes pós melhorias
+# Versão 3.0 (pós-qualificação)
 
-## Teste de amostras do alvo
+## Testes pós melhorias
+
+### Teste de amostras do alvo
 
 === Teste A2: sampler de alvo ===
 Env: TwoLinkArmEnv (from two_link_arm_env)
@@ -103,3 +105,29 @@ Violação min_dist: 0/20000
 
 r (min/mean/max) = 0.0204 / 0.6546 / 0.9799
 d_tip0 (min/mean/max) = 0.0712 / 0.7553 / 1.3884
+
+
+## Rodando o Treino
+```python
+  python train_rl.py --mode pirl --seed 0
+```
+
+ou, para 5 seeds:
+
+```python
+  python train_many_seeds.py --mode pure --steps 300000 --seeds 0,1,2,3,4
+  python train_many_seeds.py --mode pirl --steps 300000 --seeds 0,1,2,3,4
+```
+
+## Avaliação v3.0 (pós-qualificação):
+
+```python
+  python eval_rl.py --mode both --train-seed 0 --eval-seed-base 1000 --episodes 200 --out results/eval_train0.csv
+
+```
+
+ou com executavel > No PowerShell, dentro da pasta do projeto:
+```
+.\run_eval.ps1
+```
+
