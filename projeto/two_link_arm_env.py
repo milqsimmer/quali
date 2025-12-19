@@ -109,29 +109,39 @@ class TwoLinkArmEnv(gym.Env):
         tau2 = abs(js[1][3])
         tau_l1 = tau1 + tau2  # ||tau_t||_1 = |tau1| + |tau2|
 
-        # ====== REWARD ======
-        # RL puro: -distância + penalidade leve de ação
+        # ====== REWARD (decomposto) ======
         lam_a = 0.001
 
-        if self.reward_mode == "pure":
-            reward = -dist - lam_a * float(np.linalg.norm(action))
+        # componentes comuns
+        r_dist = -float(dist)
+        r_act = -lam_a * float(np.linalg.norm(action))
 
-        # PIRL: -distância + penalidade de ação + penalidade de torque
-        else:
+        if self.reward_mode == "pure":
+            alpha_tau = 0.0
+            r_tau = 0.0
+            reward = r_dist + r_act
+        else:  # "pirl"
             alpha_tau = 0.0005  # ajuste fino depois
-            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_l1
+            r_tau = -alpha_tau * float(tau_l1)
+            reward = r_dist + r_act + r_tau
 
         done = dist < 0.05
 
         obs = self._get_obs()
         info = {
-            "distance": dist,
-            "d0": getattr(self, "d0", None),
-            "tau1": tau1,
-            "tau2": tau2,
-            "tau_l1": tau_l1,
+            "distance": float(dist),
+            "d0": float(getattr(self, "d0", np.nan)),
+            "tau1": float(tau1),
+            "tau2": float(tau2),
+            "tau_l1": float(tau_l1),
+            # --- decomposição do reward ---
+            "r_dist": float(r_dist),
+            "r_act": float(r_act),
+            "r_tau": float(r_tau),
+            "lam_a": float(lam_a),
+            "alpha_tau": float(alpha_tau),
         }
-        return obs, reward, done, info
+        return obs, float(reward), done, info
 
     def _create_target_visual(self):
         # Apaga alvo anterior (se houver)
