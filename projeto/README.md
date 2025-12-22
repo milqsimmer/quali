@@ -131,3 +131,10 @@ ou com executavel > No PowerShell, dentro da pasta do projeto:
 .\run_eval.ps1
 ```
 
+## Coletar todos os resultados
+Depois de rodar vários evals (ex.: results/eval_seed0_train0.csv, results/eval_seed0_train1.csv, ...):
+```
+python merge_results.py --pattern "results/*.csv" --out-dir results_agg
+```
+
+

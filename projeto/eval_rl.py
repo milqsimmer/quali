@@ -83,6 +83,9 @@ def evaluate_model(
         done = False
         ep_ret = 0.0
         ep_len = 0
+        ep_r_dist = 0.0
+        ep_r_act = 0.0
+        ep_r_tau = 0.0
         tau_sum = 0.0
         last_info = {}
 
@@ -90,6 +93,9 @@ def evaluate_model(
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
 
+            ep_r_dist += float(info.get("r_dist", 0.0))
+            ep_r_act += float(info.get("r_act", 0.0))
+            ep_r_tau += float(info.get("r_tau", 0.0))
             ep_ret += float(reward)
             ep_len += 1
             last_info = info
@@ -138,6 +144,12 @@ def evaluate_model(
                 "phi_max": phi_max,
                 "max_steps": max_steps,
                 "success_tol": success_tol,
+                "sum_r_dist": ep_r_dist,
+                "sum_r_act": ep_r_act,
+                "sum_r_tau": ep_r_tau,
+                "mean_r_dist": ep_r_dist / ep_len if ep_len > 0 else np.nan,
+                "mean_r_act": ep_r_act / ep_len if ep_len > 0 else np.nan,
+                "mean_r_tau": ep_r_tau / ep_len if ep_len > 0 else np.nan,
             }
         )
 

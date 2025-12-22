@@ -109,29 +109,39 @@ class TwoLinkArmEnv(gym.Env):
         tau2 = abs(js[1][3])
         tau_l1 = tau1 + tau2  # ||tau_t||_1 = |tau1| + |tau2|
 
-        # ====== REWARD ======
-        # RL puro: -distância + penalidade leve de ação
+        # ====== REWARD (decomposto) ======
         lam_a = 0.001
 
-        if self.reward_mode == "pure":
-            reward = -dist - lam_a * float(np.linalg.norm(action))
+        # componentes comuns
+        r_dist = -float(dist)
+        r_act = -lam_a * float(np.linalg.norm(action))
 
-        # PIRL: -distância + penalidade de ação + penalidade de torque
-        else:
+        if self.reward_mode == "pure":
+            alpha_tau = 0.0
+            r_tau = 0.0
+            reward = r_dist + r_act
+        else:  # "pirl"
             alpha_tau = 0.0005  # ajuste fino depois
-            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_l1
+            r_tau = -alpha_tau * float(tau_l1)
+            reward = r_dist + r_act + r_tau
 
         done = dist < 0.05
 
         obs = self._get_obs()
         info = {
-            "distance": dist,
-            "d0": getattr(self, "d0", None),
-            "tau1": tau1,
-            "tau2": tau2,
-            "tau_l1": tau_l1,
+            "distance": float(dist),
+            "d0": float(getattr(self, "d0", np.nan)),
+            "tau1": float(tau1),
+            "tau2": float(tau2),
+            "tau_l1": float(tau_l1),
+            # --- decomposição do reward ---
+            "r_dist": float(r_dist),
+            "r_act": float(r_act),
+            "r_tau": float(r_tau),
+            "lam_a": float(lam_a),
+            "alpha_tau": float(alpha_tau),
         }
-        return obs, reward, done, info
+        return obs, float(reward), done, info
 
     def _create_target_visual(self):
         # Apaga alvo anterior (se houver)
@@ -150,7 +160,12 @@ class TwoLinkArmEnv(gym.Env):
         self.np_random, _ = seeding.np_random(seed)
         return [seed]
 
-    def _sample_target(self, tip0, margin=0.02, min_tip_dist=0.07):
+    def _sample_target(self, tip0):
+        margin = self.margin
+        min_tip_dist = self.min_tip_dist
+        phi_min = self.phi_min
+        phi_max = self.phi_max
+
         r_min = abs(self.l1 - self.l2) + margin
         r_max = (self.l1 + self.l2) - margin
 
@@ -158,10 +173,11 @@ class TwoLinkArmEnv(gym.Env):
             u = self.np_random.uniform(0.0, 1.0)
             r = np.sqrt(u * (r_max**2 - r_min**2) + r_min**2)
 
-            phi = self.np_random.uniform(-np.pi / 2, np.pi / 2)  # x > 0
+            phi = self.np_random.uniform(phi_min, phi_max)
+            # x > 0: -np.pi / 2, np.pi / 2
             x, y = r * np.cos(phi), r * np.sin(phi)
 
-            target = np.array([x, y])
+            target = np.array([x, y], dtype=float)
 
             if np.linalg.norm(target - tip0) >= min_tip_dist:
                 return [float(x), float(y)]
