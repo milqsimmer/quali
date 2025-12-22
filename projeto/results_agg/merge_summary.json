@@ -1,0 +1,27 @@
+{
+  "input_pattern": "results/*.csv",
+  "n_files": 6,
+  "files": [
+    "eval_both_merged_train0-4_base1000_ep200.csv",
+    "eval_both_train0_base1000_ep200.csv",
+    "eval_both_train1_base1000_ep200.csv",
+    "eval_both_train2_base1000_ep200.csv",
+    "eval_both_train3_base1000_ep200.csv",
+    "eval_both_train4_base1000_ep200.csv"
+  ],
+  "rows_total": 4000,
+  "d0_bins": [
+    0.07,
+    0.3,
+    0.5,
+    0.7,
+    0.9,
+    1.1,
+    1.4
+  ],
+  "outputs": {
+    "merged_eval": "results_agg\\merged_eval.csv",
+    "agg_by_model": "results_agg\\agg_by_model.csv",
+    "agg_by_d0_bins": "results_agg\\agg_by_d0_bins.csv"
+  }
+}
