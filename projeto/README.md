@@ -137,4 +137,6 @@ Depois de rodar vários evals (ex.: results/eval_seed0_train0.csv, results/eval_
 python merge_results.py --pattern "results/*.csv" --out-dir results_agg
 ```
 
+# Versão 4.0 - torque control
+
 
