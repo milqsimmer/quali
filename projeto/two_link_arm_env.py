@@ -1,4 +1,4 @@
-# two_link_arm_env.py
+# two_link_arm_env.py (TORQUE_CONTROL only)
 
 import gym
 from gym.utils import seeding
@@ -10,27 +10,47 @@ import time
 
 
 class TwoLinkArmEnv(gym.Env):
+    """
+    Two-link planar arm in PyBullet with direct torque control.
+
+    Action: tau = [tau1, tau2] (N·m), clipped to [-tau_max, tau_max]
+    Observation: [theta1, theta2, target_x, target_y]
+    """
+
     def __init__(
         self,
-        render=False,
-        reward_mode="pure",
+        render: bool = False,
+        reward_mode: str = "pure",  # "pure" ou "pirl"
         seed: int | None = None,
+        # ====== alvo ======
         margin: float = 0.02,
         min_tip_dist: float = 0.07,
         phi_min: float = -np.pi / 2,
         phi_max: float = np.pi / 2,
+        # ====== torque control ======
+        tau_max: float = 20.0,
+        lam_a: float = 0.001,  # penalidade de ação (||tau||)
+        alpha_tau: float = 0.0005,  # peso do termo físico no PIRL (||tau_applied||_1)
     ):
-        super(TwoLinkArmEnv, self).__init__()
-        self.reward_mode = reward_mode
+        super().__init__()
 
-        # ---- parâmetros do sampler (A2) ----
+        assert reward_mode in ("pure", "pirl"), "reward_mode deve ser 'pure' ou 'pirl'"
+
+        self.reward_mode = reward_mode
+        self.render_mode = render
+
+        # parâmetros do alvo
         self.margin = float(margin)
         self.min_tip_dist = float(min_tip_dist)
         self.phi_min = float(phi_min)
         self.phi_max = float(phi_max)
-        # ------------------------------------
 
-        self.render_mode = render
+        # torque control
+        self.tau_max = float(tau_max)
+        self.lam_a = float(lam_a)
+        self.alpha_tau = float(alpha_tau)
+
+        # PyBullet init
         self.physicsClient = p.connect(p.GUI if render else p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.8)
@@ -38,113 +58,184 @@ class TwoLinkArmEnv(gym.Env):
         self.plane = p.loadURDF("plane.urdf")
         self.robot = p.loadURDF("two_link_arm.urdf", basePosition=[0, 0, 0])
 
-        self.link1 = 0
+        self.joint_ids = [0, 1]
         self.link2 = 1
 
+        # comprimentos dos elos
         self.l1 = 0.5
         self.l2 = 0.5
-
         self.offset_local = [self.l2, 0, 0]
 
-        # Observação: [theta1, theta2, target_x, target_y]
+        # Obs: [theta1, theta2, target_x, target_y]
         self.observation_space = spaces.Box(
-            low=np.array([-np.pi, -np.pi, -1.5, -1.5]),
-            high=np.array([np.pi, np.pi, 1.5, 1.5]),
+            low=np.array([-np.pi, -np.pi, -1.5, -1.5], dtype=np.float32),
+            high=np.array([np.pi, np.pi, 1.5, 1.5], dtype=np.float32),
             dtype=np.float32,
         )
 
-        # Ações: variação nos ângulos das juntas
+        # Ação: torques
         self.action_space = spaces.Box(
-            low=np.array([-0.1, -0.1]), high=np.array([0.1, 0.1]), dtype=np.float32
+            low=np.array([-self.tau_max, -self.tau_max], dtype=np.float32),
+            high=np.array([self.tau_max, self.tau_max], dtype=np.float32),
+            dtype=np.float32,
         )
 
+        # RNG
         self.np_random, _ = seeding.np_random(seed)
 
+        # estado
+        self.theta1 = 0.0
+        self.theta2 = 0.0
         self.target_pos = None
+        self.d0 = None
 
-    def reset(self, *, seed=None, options=None):
+        # desabilita motores padrão para permitir torque direto
+        self._disable_motors()
+
+    # ---------------- Gym API ----------------
+
+    def reset(self, *, seed=None):
         if seed is not None:
             self.np_random, _ = seeding.np_random(seed)
 
-        self.theta1 = 0.0
-        self.theta2 = 0.0
+        # reseta juntas (pos e vel)
+        for j in self.joint_ids:
+            p.resetJointState(self.robot, j, targetValue=0.0, targetVelocity=0.0)
 
-        # zera estado físico das juntas
-        p.resetJointState(self.robot, 0, targetValue=0.0, targetVelocity=0.0)
-        p.resetJointState(self.robot, 1, targetValue=0.0, targetVelocity=0.0)
+        # garante torque control (motores desabilitados)
+        self._disable_motors()
 
-        # self._apply_angles(self.theta1, self.theta2)
+        # aplica torque zero no início
+        self._apply_torque(np.array([0.0, 0.0], dtype=np.float32))
         p.stepSimulation()
 
-        # posição inicial da ponta do braço
-        tip0 = np.array(self._get_end_effector_pos()[:2])
+        # estado real
+        js = p.getJointStates(self.robot, self.joint_ids)
+        self.theta1 = float(js[0][0])
+        self.theta2 = float(js[1][0])
 
-        self.target_pos = self._sample_target(tip0)
-        self.d0 = float(np.linalg.norm(tip0 - np.array(self.target_pos)))
+        # tip0 real após reset
+        tip0 = np.array(self._get_end_effector_pos()[:2], dtype=float)
 
-        self._create_target_visual()  # Adiciona a bolinha vermelha (alvo)
+        # amostra alvo e calcula dificuldade
+        self.target_pos = self._sample_target(tip0=tip0)
+        self.d0 = float(np.linalg.norm(tip0 - np.array(self.target_pos, dtype=float)))
 
-        obs = self._get_obs()
-        return obs
+        self._create_target_visual()
+        return self._get_obs()
 
     def step(self, action):
-        # atualiza ângulos com incremento da ação
-        self.theta1 = np.clip(self.theta1 + action[0], -np.pi, np.pi)
-        self.theta2 = np.clip(self.theta2 + action[1], -np.pi, np.pi)
+        action = np.asarray(action, dtype=np.float32).reshape(
+            2,
+        )
+        tau_cmd = np.clip(action, -self.tau_max, self.tau_max)
 
-        # aplica ângulos e avança simulação
-        self._apply_angles(self.theta1, self.theta2)
+        # aplica torque
+        self._apply_torque(tau_cmd)
         p.stepSimulation()
 
-        # distância ponta–alvo no plano (x, y)
-        end_effector_pos = self._get_end_effector_pos()
-        dist = np.linalg.norm(
-            np.array(end_effector_pos[:2]) - np.array(self.target_pos)
+        # lê estado real e torques aplicados reportados
+        js = p.getJointStates(self.robot, self.joint_ids)
+        self.theta1 = float(js[0][0])
+        self.theta2 = float(js[1][0])
+
+        # torque "aplicado" (reportado) — pode diferir do comandado dependendo do solver
+        tau1_applied = float(abs(js[0][3]))
+        tau2_applied = float(abs(js[1][3]))
+        tau_l1 = float(tau1_applied + tau2_applied)
+
+        # distância ponta–alvo
+        ee = self._get_end_effector_pos()
+        dist = float(
+            np.linalg.norm(
+                np.array(ee[:2], dtype=float) - np.array(self.target_pos, dtype=float)
+            )
         )
 
-        # lê torques aplicados nas duas juntas
-        js = p.getJointStates(self.robot, [0, 1])
-        # appliedMotorTorque é o quarto elemento do tuple
-        tau1 = abs(js[0][3])
-        tau2 = abs(js[1][3])
-        tau_l1 = tau1 + tau2  # ||tau_t||_1 = |tau1| + |tau2|
-
         # ====== REWARD (decomposto) ======
-        lam_a = 0.001
-
-        # componentes comuns
-        r_dist = -float(dist)
-        r_act = -lam_a * float(np.linalg.norm(action))
+        r_dist = -dist
+        r_act = -self.lam_a * float(
+            np.linalg.norm(tau_cmd)
+        )  # penaliza magnitude do torque comandado
 
         if self.reward_mode == "pure":
-            alpha_tau = 0.0
             r_tau = 0.0
             reward = r_dist + r_act
-        else:  # "pirl"
-            alpha_tau = 0.0005  # ajuste fino depois
-            r_tau = -alpha_tau * float(tau_l1)
+            alpha_tau_used = 0.0
+        else:
+            # termo físico: penaliza esforço (torque reportado) - proxy
+            r_tau = -self.alpha_tau * tau_l1
             reward = r_dist + r_act + r_tau
+            alpha_tau_used = self.alpha_tau
 
         done = dist < 0.05
 
-        obs = self._get_obs()
         info = {
-            "distance": float(dist),
-            "d0": float(getattr(self, "d0", np.nan)),
-            "tau1": float(tau1),
-            "tau2": float(tau2),
-            "tau_l1": float(tau_l1),
-            # --- decomposição do reward ---
+            "distance": dist,
+            "d0": float(self.d0) if self.d0 is not None else np.nan,
+            # torques
+            "tau1": tau1_applied,
+            "tau2": tau2_applied,
+            "tau_l1": tau_l1,
+            # torque comandado (útil p/ auditoria)
+            "tau_cmd1": float(tau_cmd[0]),
+            "tau_cmd2": float(tau_cmd[1]),
+            "tau_cmd_l1": float(abs(tau_cmd[0]) + abs(tau_cmd[1])),
+            # componentes do reward
             "r_dist": float(r_dist),
             "r_act": float(r_act),
             "r_tau": float(r_tau),
-            "lam_a": float(lam_a),
-            "alpha_tau": float(alpha_tau),
+            "lam_a": float(self.lam_a),
+            "alpha_tau": float(alpha_tau_used),
         }
-        return obs, float(reward), done, info
+
+        return self._get_obs(), float(reward), done, info
+
+    def render(self, mode="human"):
+        if self.render_mode:
+            time.sleep(1.0 / 240.0)
+
+    def close(self):
+        p.disconnect(self.physicsClient)
+
+    def seed(self, seed=None):
+        self.np_random, _ = seeding.np_random(seed)
+        return [seed]
+
+    # ---------------- Alvo / obs ----------------
+
+    def _sample_target(self, tip0=None):
+        r_min = abs(self.l1 - self.l2) + self.margin
+        r_max = (self.l1 + self.l2) - self.margin
+
+        if tip0 is None:
+            tip0 = np.array([self.l1 + self.l2, 0.0], dtype=float)
+        else:
+            tip0 = np.array(tip0, dtype=float)
+
+        while True:
+            u = self.np_random.uniform(0.0, 1.0)
+            r = np.sqrt(u * (r_max**2 - r_min**2) + r_min**2)
+
+            phi = self.np_random.uniform(self.phi_min, self.phi_max)
+            x, y = r * np.cos(phi), r * np.sin(phi)
+
+            target = np.array([x, y], dtype=float)
+            if np.linalg.norm(target - tip0) >= self.min_tip_dist:
+                return [float(x), float(y)]
+
+    def _get_obs(self):
+        return np.array(
+            [
+                float(self.theta1),
+                float(self.theta2),
+                float(self.target_pos[0]),
+                float(self.target_pos[1]),
+            ],
+            dtype=np.float32,
+        )
 
     def _create_target_visual(self):
-        # Apaga alvo anterior (se houver)
         if hasattr(self, "target_id"):
             p.removeBody(self.target_id)
 
@@ -156,59 +247,26 @@ class TwoLinkArmEnv(gym.Env):
             basePosition=[self.target_pos[0], self.target_pos[1], 0.1],
         )
 
-    def seed(self, seed=None):
-        self.np_random, _ = seeding.np_random(seed)
-        return [seed]
+    # ---------------- PyBullet helpers ----------------
 
-    def _sample_target(self, tip0):
-        margin = self.margin
-        min_tip_dist = self.min_tip_dist
-        phi_min = self.phi_min
-        phi_max = self.phi_max
+    def _disable_motors(self):
+        # desabilita os motores padrão para permitir torque direto
+        for j in self.joint_ids:
+            p.setJointMotorControl2(self.robot, j, p.VELOCITY_CONTROL, force=0)
 
-        r_min = abs(self.l1 - self.l2) + margin
-        r_max = (self.l1 + self.l2) - margin
-
-        while True:
-            u = self.np_random.uniform(0.0, 1.0)
-            r = np.sqrt(u * (r_max**2 - r_min**2) + r_min**2)
-
-            phi = self.np_random.uniform(phi_min, phi_max)
-            # x > 0: -np.pi / 2, np.pi / 2
-            x, y = r * np.cos(phi), r * np.sin(phi)
-
-            target = np.array([x, y], dtype=float)
-
-            if np.linalg.norm(target - tip0) >= min_tip_dist:
-                return [float(x), float(y)]
-
-    def _apply_angles(self, theta1, theta2):
-        p.setJointMotorControl2(
-            self.robot, 0, p.POSITION_CONTROL, targetPosition=theta1, force=20
+    def _apply_torque(self, tau: np.ndarray):
+        tau = np.asarray(tau, dtype=np.float32).reshape(
+            2,
         )
-        p.setJointMotorControl2(
-            self.robot, 1, p.POSITION_CONTROL, targetPosition=theta2, force=20
-        )
+        tau = np.clip(tau, -self.tau_max, self.tau_max)
+        p.setJointMotorControl2(self.robot, 0, p.TORQUE_CONTROL, force=float(tau[0]))
+        p.setJointMotorControl2(self.robot, 1, p.TORQUE_CONTROL, force=float(tau[1]))
 
     def _get_end_effector_pos(self):
         ls = p.getLinkState(self.robot, self.link2, computeForwardKinematics=True)
-        # use 4/5 se disponíveis; caso contrário, caia em 0/1
         link_pos = ls[4] if len(ls) > 4 else ls[0]
         link_ornt = ls[5] if len(ls) > 5 else ls[1]
         ee_pos, _ = p.multiplyTransforms(
             link_pos, link_ornt, self.offset_local, [0, 0, 0, 1]
         )
         return ee_pos
-
-    def _get_obs(self):
-        return np.array(
-            [self.theta1, self.theta2, self.target_pos[0], self.target_pos[1]],
-            dtype=np.float32,
-        )
-
-    def render(self, mode="human"):
-        if self.render_mode:
-            time.sleep(1.0 / 240.0)
-
-    def close(self):
-        p.disconnect(self.physicsClient)
