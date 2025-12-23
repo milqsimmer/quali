@@ -1,0 +1,31 @@
+{
+  "exp_id": "ctrl-direct__pi-0-tau_l1-a0.0005__sf-proj_box_jointlimit-dt2-qm0.15__tau20-lama0.001__a2-m0.02-md0.07-phi-1.5708_1.5708__h200",
+  "train_seed": 3,
+  "episodes": 200,
+  "eval_seed_base": 1000,
+  "eval_seeds_range": [
+    1000,
+    1199
+  ],
+  "success_rate": 0.31,
+  "mean_d0": 0.7843683416229866,
+  "std_d0": 0.2884586003397662,
+  "mean_final_dist": 0.20129680524590984,
+  "std_final_dist": 0.15118414033445088,
+  "mean_return": -78.23655168793873,
+  "std_return": 37.49236252183346,
+  "mean_ep_len": 166.03,
+  "std_ep_len": 61.26139975547408,
+  "mean_tau_effort": 0.0,
+  "std_tau_effort": 0.0,
+  "mean_pi_value": 0.0,
+  "std_pi_value": 0.0,
+  "mean_filter_intervention_rate": 0.03447128272752875,
+  "std_filter_intervention_rate": 0.10935899348125018,
+  "mean_filter_delta_tau_norm": 0.007424206096838851,
+  "std_filter_delta_tau_norm": 0.028421407259978434,
+  "mean_tau_raw_norm": 0.6135558851433502,
+  "mean_tau_cmd_norm": 0.6080246481207406,
+  "mean_tau_nom_norm": NaN,
+  "mean_tau_res_norm": NaN
+}

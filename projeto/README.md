@@ -139,4 +139,37 @@ python merge_results.py --pattern "results/*.csv" --out-dir results_agg
 
 # Versão 4.0 - torque control
 
+## Treino
+```
+.\run_train_grid.ps1
+# ou
+.\run_train_grid.ps1 -Steps 500000
+```
+## Eval
+```
+.\run_eval_grid.ps1
+
+# Com episodes maior:
+.\run_eval_grid.ps1 -Episodes 500
+```
+
+## Resultados
+```
+python aggregate_results.py --results-dir results --out-dir results
+
+# Se quiser gerar tabela LaTeX:
+python aggregate_results.py --results-dir results --out-dir results --latex results/table_across_seeds.tex
+```
+
+### Como usar make_latex_tables_d0bins.py:
+
+1) Um único .tex com todos os bins:
+
+python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seeds.csv --out-tex results/table_d0bins.tex
+
+
+2) Um .tex por bin (recomendado se quiser colocar várias tabelas menores):
+
+python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seeds.csv --out-dir results/tables_d0 --split
+
 
