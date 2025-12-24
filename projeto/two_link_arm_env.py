@@ -232,15 +232,23 @@ class TwoLinkArmEnv(gym.Env):
         # use tau_cmd magnitude as action penalty (what we actually sent)
         r_act = -self.lam_a * float(np.linalg.norm(tau_cmd))
 
+        # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        # Robust torque choice for PI/métricas:
+        # some setups return appliedMotorTorque ~ 0 even under TORQUE_CONTROL.
+        tau_eff = np.array(tau_applied, dtype=float).copy()
+        tau_eff_source = "applied"
+        if np.allclose(tau_eff, 0.0, atol=1e-6) and (np.linalg.norm(tau_cmd) > 1e-6):
+            tau_eff = np.array(tau_cmd, dtype=float).copy()
+            tau_eff_source = "cmd"
+        # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
         # PI term
         if self.use_pi_reward:
             if self.pi_metric == "tau_l1":
-                pi_val = float(abs(tau_applied[0]) + abs(tau_applied[1]))
+                pi_val = float(abs(tau_eff[0]) + abs(tau_eff[1]))
             else:  # "power"
                 # potência proxy = sum |tau_i * qdot_i|
-                pi_val = float(
-                    abs(tau_applied[0] * qdot[0]) + abs(tau_applied[1] * qdot[1])
-                )
+                pi_val = float(abs(tau_eff[0] * qdot[0]) + abs(tau_eff[1] * qdot[1]))
             r_pi = -self.alpha_pi * pi_val
             alpha_used = self.alpha_pi
         else:
@@ -270,6 +278,10 @@ class TwoLinkArmEnv(gym.Env):
             "tau_cmd2": float(tau_cmd[1]),
             "tau_app1": float(tau_applied[0]),
             "tau_app2": float(tau_applied[1]),
+            # >>> added (robust effective torque + source)
+            "tau_eff1": float(tau_eff[0]),
+            "tau_eff2": float(tau_eff[1]),
+            "tau_eff_source": tau_eff_source,
             # residual details (when applicable)
             "tau_nom1": float(tau_nom[0]) if np.isfinite(tau_nom[0]) else np.nan,
             "tau_nom2": float(tau_nom[1]) if np.isfinite(tau_nom[1]) else np.nan,
