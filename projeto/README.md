@@ -183,4 +183,10 @@ smoke test 1:
 
 > python eval_rl.py --exp-id ctrl-direct__pi-1_test --train-seed 0 --eval-seed-base 1000 --episodes 50 --out-dir results_smoke
 
+smoke test 2:
+  - smoke_validate_before_big_train.py
+   > python smoke_validate_before_big_train.py --seed 0 --steps 50
+
+
+
 
