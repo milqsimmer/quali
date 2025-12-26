@@ -241,6 +241,7 @@ class TwoLinkArmEnv(gym.Env):
             tau_eff = np.array(tau_cmd, dtype=float).copy()
             tau_eff_source = "cmd"
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+        tau_l1_eff = float(abs(tau_eff[0]) + abs(tau_eff[1]))
 
         # PI term
         if self.use_pi_reward:
@@ -282,6 +283,7 @@ class TwoLinkArmEnv(gym.Env):
             "tau_eff1": float(tau_eff[0]),
             "tau_eff2": float(tau_eff[1]),
             "tau_eff_source": tau_eff_source,
+            "tau_l1": tau_l1_eff,
             # residual details (when applicable)
             "tau_nom1": float(tau_nom[0]) if np.isfinite(tau_nom[0]) else np.nan,
             "tau_nom2": float(tau_nom[1]) if np.isfinite(tau_nom[1]) else np.nan,

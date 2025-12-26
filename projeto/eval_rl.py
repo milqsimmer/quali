@@ -116,9 +116,7 @@ def evaluate(
             ep_r_act += float(info.get("r_act", 0.0))
             ep_r_pi += float(info.get("r_pi", 0.0))
 
-            tau_app1 = float(info.get("tau_app1", 0.0))
-            tau_app2 = float(info.get("tau_app2", 0.0))
-            tau_sum += abs(tau_app1) + abs(tau_app2)
+            tau_sum += float(info.get("tau_l1", 0.0))
 
             pi_sum += float(info.get("pi_value", 0.0))
 
