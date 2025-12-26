@@ -173,3 +173,14 @@ python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seed
 python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seeds.csv --out-dir results/tables_d0 --split
 
 
+### Testar os 4 modos:
+smoke test 1:
+> python train_rl.py --exp-id ctrl-direct__pi-0_test --control direct --seed 0 --steps 20000
+
+> python train_rl.py --exp-id ctrl-direct__pi-1_test --control direct --use-pi-reward --alpha-pi 0.0005 --pi-metric tau_l1 --seed 0 --steps 20000
+
+> python eval_rl.py --exp-id ctrl-direct__pi-0_test --train-seed 0 --eval-seed-base 1000 --episodes 50 --out-dir results_smoke
+
+> python eval_rl.py --exp-id ctrl-direct__pi-1_test --train-seed 0 --eval-seed-base 1000 --episodes 50 --out-dir results_smoke
+
+

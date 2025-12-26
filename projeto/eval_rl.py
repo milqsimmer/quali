@@ -108,6 +108,18 @@ def evaluate(
             action, _ = model.predict(obs, deterministic=True)
             obs, reward, done, info = env.step(action)
 
+            if ep == 0 and ep_len == 1:
+                print("DEBUG keys:", sorted(info.keys()))
+                print("DEBUG tau_cmd:", info.get("tau_cmd1"), info.get("tau_cmd2"))
+                print(
+                    "DEBUG tau_eff:",
+                    info.get("tau_eff1"),
+                    info.get("tau_eff2"),
+                    "src=",
+                    info.get("tau_eff_source"),
+                )
+                print("DEBUG tau_l1:", info.get("tau_l1"))
+
             ep_ret += float(reward)
             ep_len += 1
             last_info = info
