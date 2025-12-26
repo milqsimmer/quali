@@ -1,0 +1,33 @@
+[
+  {
+    "exp_id": "ctrl-direct__pi-1_test",
+    "train_seed": 0,
+    "episodes": 50,
+    "eval_seed_base": 1000,
+    "eval_seeds_range": [
+      1000,
+      1049
+    ],
+    "success_rate": 0.1,
+    "mean_d0": 0.7537178937865415,
+    "std_d0": 0.2517914342804146,
+    "mean_final_dist": 0.5259705000821306,
+    "std_final_dist": 0.28549781333852403,
+    "mean_return": -114.25862430994931,
+    "std_return": 45.55140731390182,
+    "mean_ep_len": 183.68,
+    "std_ep_len": 49.20505665071426,
+    "mean_tau_effort": 0.0,
+    "std_tau_effort": 0.0,
+    "mean_pi_value": 0.5008343668256696,
+    "std_pi_value": 0.13246850895782414,
+    "mean_filter_intervention_rate": 0.0,
+    "std_filter_intervention_rate": 0.0,
+    "mean_filter_delta_tau_norm": 0.0,
+    "std_filter_delta_tau_norm": 0.0,
+    "mean_tau_raw_norm": 0.3699629226781352,
+    "mean_tau_cmd_norm": 0.3699629226781352,
+    "mean_tau_nom_norm": NaN,
+    "mean_tau_res_norm": NaN
+  }
+]
