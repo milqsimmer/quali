@@ -58,12 +58,17 @@ def evaluate(
     episodes: int,
     render: bool,
     print_episodes: bool,
+    strict: bool,
 ):
     manifest = load_manifest(exp_id)
 
     model_path = os.path.join("runs_torque", exp_id, f"ppo_model_seed{train_seed}.zip")
     if not os.path.isfile(model_path):
-        raise FileNotFoundError(f"Modelo não encontrado: {model_path}")
+        msg = f"Modelo não encontrado: {model_path}"
+        if strict:
+            raise FileNotFoundError(msg)
+        print(f"[SKIP] {msg}")
+        return None, None
 
     env = make_env_from_manifest(manifest, render=render, base_seed=eval_seed_base)
     model = PPO.load(model_path, env=env)
@@ -314,6 +319,11 @@ def main():
 
     ap.add_argument("--render", action="store_true")
     ap.add_argument("--print-episodes", action="store_true")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="Falha se algum modelo não existir (por padrão, modelos ausentes são pulados).",
+    )
 
     ap.add_argument("--out-dir", type=str, default="results")
     args = ap.parse_args()
@@ -333,7 +343,10 @@ def main():
             episodes=args.episodes,
             render=args.render,
             print_episodes=args.print_episodes,
+            strict=args.strict,
         )
+        if summary is None:
+            continue
         out_csv, out_json = save_outputs(
             exp_id, args.train_seed, args.eval_seed_base, rows, summary, args.out_dir
         )

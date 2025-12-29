@@ -45,8 +45,16 @@ class TwoLinkArmEnv(gym.Env):
         success_tol=0.05,
         # ----- torque -----
         tau_max=20.0,
-        # ----- reward base -----
-        lam_a=0.001,
+        # ----- reward (task + regularizações) -----
+        # Defaults preservam o comportamento anterior (task_reward="dist" e coeficientes = 0).
+        lam_a=0.001,  # esforço (torque)
+        task_reward="dist",  # "dist" | "progress" | "exp"
+        exp_k=5.0,  # usado quando task_reward == "exp"
+        lam_time=0.0,  # penalidade por passo (incentiva chegar mais rápido)
+        lam_v=0.0,  # penalidade de velocidade articular (qdot)
+        lam_smooth=0.0,  # penalidade de variação de torque (|tau_t - tau_{t-1}|)
+        lam_q=0.0,  # penalidade por proximidade/violação de limite articular (soft)
+        success_bonus=0.0,  # bônus ao atingir o alvo
         # ----- PI-reward -----
         use_pi_reward=False,
         pi_metric="tau_l1",  # "tau_l1" ou "power"
@@ -66,6 +74,7 @@ class TwoLinkArmEnv(gym.Env):
         assert control in ("direct", "residual")
         assert safety_filter in ("none", "proj_box", "proj_box_jointlimit")
         assert pi_metric in ("tau_l1", "power")
+        assert task_reward in ("dist", "progress", "exp")
 
         self.render_mode = bool(render)
 
@@ -88,6 +97,13 @@ class TwoLinkArmEnv(gym.Env):
 
         # reward
         self.lam_a = float(lam_a)
+        self.task_reward = str(task_reward)
+        self.exp_k = float(exp_k)
+        self.lam_time = float(lam_time)
+        self.lam_v = float(lam_v)
+        self.lam_smooth = float(lam_smooth)
+        self.lam_q = float(lam_q)
+        self.success_bonus = float(success_bonus)
 
         # PI reward
         self.use_pi_reward = bool(use_pi_reward)
@@ -149,6 +165,10 @@ class TwoLinkArmEnv(gym.Env):
         # safety memory
         self.prev_tau_applied = np.array([0.0, 0.0], dtype=float)
 
+        # reward shaping memory
+        self.prev_dist = None  # set on reset
+        self.prev_tau_cmd = np.array([0.0, 0.0], dtype=float)
+
         # enable torque mode
         self._disable_motors()
 
@@ -180,6 +200,10 @@ class TwoLinkArmEnv(gym.Env):
         # sample target
         self.target_pos = self._sample_target(tip0=tip0)
         self.d0 = float(np.linalg.norm(tip0 - np.array(self.target_pos, dtype=float)))
+
+        # reward shaping memory
+        self.prev_dist = float(self.d0)
+        self.prev_tau_cmd = np.array([0.0, 0.0], dtype=float)
 
         # compute nominal joint target via IK (for residual)
         self.q_des = self._ik_2link(
@@ -228,9 +252,27 @@ class TwoLinkArmEnv(gym.Env):
         )
 
         # ---------- reward decomposition ----------
+        # (1) Termo de tarefa (sempre guardamos r_dist para análise)
         r_dist = -dist
+        r_prog = 0.0
+        if self.prev_dist is not None:
+            r_prog = float(self.prev_dist - dist)  # progresso >0 quando aproxima
+
+        if self.task_reward == "dist":
+            r_task = float(r_dist)
+        elif self.task_reward == "progress":
+            r_task = float(r_prog)
+        else:  # "exp"
+            # recompensa positiva e saturada perto do alvo
+            r_task = float(np.exp(-self.exp_k * dist))
+
+        # (2) Regularizações: torque (base), velocidade, suavidade, tempo
         # use tau_cmd magnitude as action penalty (what we actually sent)
         r_act = -self.lam_a * float(np.linalg.norm(tau_cmd))
+        r_vel = -self.lam_v * float(np.linalg.norm(qdot) ** 2)
+        dtau = (np.array(tau_cmd, dtype=float) - np.array(self.prev_tau_cmd, dtype=float))
+        r_smooth = -self.lam_smooth * float(np.linalg.norm(dtau) ** 2)
+        r_time = -self.lam_time
 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
         # Robust torque choice for PI/métricas:
@@ -243,13 +285,15 @@ class TwoLinkArmEnv(gym.Env):
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
         tau_l1_eff = float(abs(tau_eff[0]) + abs(tau_eff[1]))
 
-        # PI term
+        # (3) PI term (physics-informed): valor SEMPRE é calculado p/ métricas.
+        if self.pi_metric == "tau_l1":
+            pi_metric_val = tau_l1_eff
+        else:  # "power"
+            # potência proxy = sum |tau_i * qdot_i|
+            pi_metric_val = float(abs(tau_eff[0] * qdot[0]) + abs(tau_eff[1] * qdot[1]))
+
         if self.use_pi_reward:
-            if self.pi_metric == "tau_l1":
-                pi_val = float(abs(tau_eff[0]) + abs(tau_eff[1]))
-            else:  # "power"
-                # potência proxy = sum |tau_i * qdot_i|
-                pi_val = float(abs(tau_eff[0] * qdot[0]) + abs(tau_eff[1] * qdot[1]))
+            pi_val = float(pi_metric_val)
             r_pi = -self.alpha_pi * pi_val
             alpha_used = self.alpha_pi
         else:
@@ -257,9 +301,23 @@ class TwoLinkArmEnv(gym.Env):
             r_pi = 0.0
             alpha_used = 0.0
 
-        reward = float(r_dist + r_act + r_pi)
+        # (4) Penalidade suave por proximidade de limites articulares (opcional)
+        q_abs = np.abs(np.array(q, dtype=float))
+        q_soft = np.pi - float(self.q_margin)
+        q_viol = np.maximum(0.0, q_abs - q_soft) / max(1e-9, float(self.q_margin))
+        q_viol_norm2 = float(np.sum(q_viol**2))
+        r_q = -self.lam_q * q_viol_norm2
 
+        # (5) Bônus terminal
         done = dist <= self.success_tol
+        r_success = float(self.success_bonus) if done else 0.0
+
+        # total
+        reward = float(r_task + r_act + r_pi + r_vel + r_smooth + r_time + r_q + r_success)
+
+        # update shaping memory
+        self.prev_dist = float(dist)
+        self.prev_tau_cmd = np.array(tau_cmd, dtype=float)
 
         info = {
             "distance": dist,
@@ -272,6 +330,14 @@ class TwoLinkArmEnv(gym.Env):
             "pi_metric": self.pi_metric,
             "alpha_pi": float(alpha_used),
             "safety_filter": self.safety_filter,
+            # reward config (for reproducibility)
+            "task_reward": self.task_reward,
+            "exp_k": float(self.exp_k),
+            "lam_time": float(self.lam_time),
+            "lam_v": float(self.lam_v),
+            "lam_smooth": float(self.lam_smooth),
+            "lam_q": float(self.lam_q),
+            "success_bonus": float(self.success_bonus),
             # torques
             "tau_raw1": float(tau_raw[0]),
             "tau_raw2": float(tau_raw[1]),
@@ -284,6 +350,10 @@ class TwoLinkArmEnv(gym.Env):
             "tau_eff2": float(tau_eff[1]),
             "tau_eff_source": tau_eff_source,
             "tau_l1": tau_l1_eff,
+            # velocities
+            "qdot1": float(qdot[0]),
+            "qdot2": float(qdot[1]),
+            "qdot_norm": float(np.linalg.norm(qdot)),
             # residual details (when applicable)
             "tau_nom1": float(tau_nom[0]) if np.isfinite(tau_nom[0]) else np.nan,
             "tau_nom2": float(tau_nom[1]) if np.isfinite(tau_nom[1]) else np.nan,
@@ -291,9 +361,20 @@ class TwoLinkArmEnv(gym.Env):
             "tau_res2": float(tau_res[1]) if np.isfinite(tau_res[1]) else np.nan,
             # reward components
             "r_dist": float(r_dist),
+            "r_prog": float(r_prog),
+            "r_task": float(r_task),
             "r_act": float(r_act),
             "r_pi": float(r_pi),
+            "r_vel": float(r_vel),
+            "r_smooth": float(r_smooth),
+            "r_time": float(r_time),
+            "r_q": float(r_q),
+            "r_success": float(r_success),
             "pi_value": float(pi_val),
+            "pi_value_metric": float(pi_metric_val),
+            "power_abs": float(power_abs),
+            "dtau_cmd_norm": float(dtau_norm),
+            "q_viol_norm2": float(q_viol_norm2),
             # safety metrics
             **filt_info,
         }

@@ -19,6 +19,16 @@ def build_exp_id(args) -> str:
         parts.append(f"pd-kp{args.kp:g}-kd{args.kd:g}-el{args.elbow}")
     parts.append(f"tau{args.tau_max:g}-lama{args.lam_a:g}")
     parts.append(
+        "rew-"
+        f"{args.task_reward}"
+        f"-sb{args.success_bonus:g}"
+        f"-lt{args.lam_time:g}"
+        f"-lv{args.lam_v:g}"
+        f"-ls{args.lam_smooth:g}"
+        f"-lq{args.lam_q:g}"
+        f"-ek{args.exp_k:g}"
+    )
+    parts.append(
         f"a2-m{args.margin:g}-md{args.min_tip_dist:g}-phi{args.phi_min:g}_{args.phi_max:g}"
     )
     parts.append(f"h{args.max_steps}")
@@ -50,6 +60,14 @@ def main():
     # env basic
     ap.add_argument("--tau-max", type=float, default=20.0)
     ap.add_argument("--lam-a", type=float, default=0.001)
+    # reward shaping (defaults preservam o modo antigo: task_reward="dist" e coef=0)
+    ap.add_argument("--task-reward", type=str, default="dist", choices=["dist", "progress", "exp"])
+    ap.add_argument("--exp-k", type=float, default=5.0)
+    ap.add_argument("--lam-time", type=float, default=0.0)
+    ap.add_argument("--lam-v", type=float, default=0.0)
+    ap.add_argument("--lam-smooth", type=float, default=0.0)
+    ap.add_argument("--lam-q", type=float, default=0.0)
+    ap.add_argument("--success-bonus", type=float, default=0.0)
     ap.add_argument("--success-tol", type=float, default=0.05)
     ap.add_argument("--max-steps", type=int, default=200)
 
@@ -84,6 +102,13 @@ def main():
         tau_max=args.tau_max,
         # reward
         lam_a=args.lam_a,
+        task_reward=args.task_reward,
+        exp_k=args.exp_k,
+        lam_time=args.lam_time,
+        lam_v=args.lam_v,
+        lam_smooth=args.lam_smooth,
+        lam_q=args.lam_q,
+        success_bonus=args.success_bonus,
         # PI
         use_pi_reward=args.use_pi_reward,
         pi_metric=args.pi_metric,

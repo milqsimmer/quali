@@ -223,7 +223,7 @@ smoke test 2:
 
 ## v4.2:
 
-./run_train_grid_only_baseline_pirewards.ps1
+.\run_train_grid_only_baseline_pirewards.ps1
 
 .\run_eval_grid.ps1 -EvalSeedBase 1000 -Episodes 200 -OutDir results
 
