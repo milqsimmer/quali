@@ -141,25 +141,54 @@ python merge_results.py --pattern "results/*.csv" --out-dir results_agg
 
 ## Treino
 ```
-.\run_train_grid.ps1
-# ou
-.\run_train_grid.ps1 -Steps 500000
+.\run_train_grid.ps1 -Grid extended -Steps 300000 -MaxSteps 200 -Seeds @(0,1,2,3,4)
 ```
 ## Eval
 ```
-.\run_eval_grid.ps1
+.\run_eval_grid.ps1 -EvalSeedBase 1000 -Episodes 200 -OutDir results
 
-# Com episodes maior:
-.\run_eval_grid.ps1 -Episodes 500
 ```
 
 ## Resultados
-```
-python aggregate_results.py --results-dir results --out-dir results
 
-# Se quiser gerar tabela LaTeX:
-python aggregate_results.py --results-dir results --out-dir results --latex results/table_across_seeds.tex
-```
+1) aggregate_results.py
+
+Continua lendo eval__*__trainseed*__evalbase*.csv, mas agora:
+
+adiciona config_id (label “exp_id | control=... | safety_filter=...”)
+
+agrega sempre separado por eixos (control, use_pi_reward, pi_metric, alpha_pi, safety_filter)
+
+suporta colunas opcionais “residual-only” (se aparecerem no futuro) sem forçar 0 (fica NaN quando não aplicável)
+
+2) plot_results.py
+
+Para de depender de mode e de “merged_eval.csv”.
+
+Passa a plotar direto a partir de:
+
+aggregated_across_seeds.csv
+
+aggregated_d0bin_across_seeds.csv
+
+Faz:
+
+barras (com CI95 quando existir) de success_rate, final_distance, tau_l1, pi_value, filter_intervention_rate
+
+curvas de success_rate por bins de d0 (top configs)
+
+Como rodar (exemplo típico)
+1) Agregar
+```python aggregate_results.py --results-dir results --out-dir results_agg```
+
+
+(Se quiser filtrar só evals com exatamente M episódios, útil pro seu “padrão ouro”)
+
+```python aggregate_result.py --results-dir results --out-dir results_agg --require-episodes 100```
+
+2) Plotar
+```python plot_results.py --across results_agg/aggregated_across_seeds.csv --d0bins results_agg/aggregated_d```
+
 
 ### Como usar make_latex_tables_d0bins.py:
 

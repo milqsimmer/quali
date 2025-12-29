@@ -1,0 +1,31 @@
+{
+  "exp_id": "ctrl-residual__pi-0-tau_l1-a0.0005__sf-none-dt2-qm0.15__pd-kp10-kd1-elauto__tau20-lama0.001__a2-m0.02-md0.07-phi-1.5708_1.5708__h200",
+  "train_seed": 3,
+  "episodes": 200,
+  "eval_seed_base": 1000,
+  "eval_seeds_range": [
+    1000,
+    1199
+  ],
+  "success_rate": 1.0,
+  "mean_d0": 0.7843683416229866,
+  "std_d0": 0.2884586003397662,
+  "mean_final_dist": 0.04330974989744505,
+  "std_final_dist": 0.006239548272760866,
+  "mean_return": -12.93897939909747,
+  "std_return": 5.377488849714718,
+  "mean_ep_len": 33.955,
+  "std_ep_len": 8.659848439782303,
+  "mean_tau_effort": 2.962286615612352,
+  "std_tau_effort": 1.1133772211461122,
+  "mean_pi_value": 0.0,
+  "std_pi_value": 0.0,
+  "mean_filter_intervention_rate": 0.0,
+  "std_filter_intervention_rate": 0.0,
+  "mean_filter_delta_tau_norm": 0.0,
+  "std_filter_delta_tau_norm": 0.0,
+  "mean_tau_raw_norm": 2.4244995969971814,
+  "mean_tau_cmd_norm": 2.4244995969971814,
+  "mean_tau_nom_norm": 5.087265585769682,
+  "mean_tau_res_norm": 4.085689096963228
+}
