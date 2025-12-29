@@ -219,3 +219,21 @@ smoke test 2:
 
 
 
+
+
+## v4.2:
+
+./run_train_grid_only_baseline_pirewards.ps1
+
+python train_rl.py --seed 0 --steps 300000 --max-steps 200 --control direct --use-pi-reward --safety-filter none --pi-metric tau_l1 --alpha-pi 0.0002
+python train_rl.py --seed 1 --steps 300000 --max-steps 200 --control direct --use-pi-reward --safety-filter none --pi-metric tau_l1 --alpha-pi 0.0002
+python train_rl.py --seed 2 --steps 300000 --max-steps 200 --control direct --use-pi-reward --safety-filter none --pi-metric tau_l1 --alpha-pi 0.0002
+python train_rl.py --seed 3 --steps 300000 --max-steps 200 --control direct --use-pi-reward --safety-filter none --pi-metric tau_l1 --alpha-pi 0.0002
+python train_rl.py --seed 4 --steps 300000 --max-steps 200 --control direct --use-pi-reward --safety-filter none --pi-metric tau_l1 --alpha-pi 0.0002
+
+
+
+
+
+
+

@@ -1,0 +1,38 @@
+{
+  "exp_id": "ctrl-direct__pi-1-tau_l1-a0.0002__sf-none-dt2-qm0.15__tau20-lama0.001__a2-m0.02-md0.07-phi-1.5708_1.5708__h200",
+  "env": {
+    "control": "direct",
+    "use_pi_reward": true,
+    "pi_metric": "tau_l1",
+    "alpha_pi": 0.0002,
+    "safety_filter": "none",
+    "dtau_max": 2.0,
+    "q_margin": 0.15,
+    "kp": 10.0,
+    "kd": 1.0,
+    "elbow": "auto",
+    "tau_max": 20.0,
+    "lam_a": 0.001,
+    "success_tol": 0.05,
+    "margin": 0.02,
+    "min_tip_dist": 0.07,
+    "phi_min": -1.5707963267949,
+    "phi_max": 1.5707963267949,
+    "max_steps": 200
+  },
+  "train": {
+    "steps": 300000,
+    "seed": 4,
+    "algo": "PPO",
+    "learning_rate": 0.0003,
+    "n_steps": 2048,
+    "batch_size": 256,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2
+  },
+  "artifacts": {
+    "model_path": "runs_torque\\ctrl-direct__pi-1-tau_l1-a0.0002__sf-none-dt2-qm0.15__tau20-lama0.001__a2-m0.02-md0.07-phi-1.5708_1.5708__h200\\ppo_model_seed4.zip"
+  }
+}

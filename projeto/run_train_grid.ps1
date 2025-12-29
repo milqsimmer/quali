@@ -16,7 +16,7 @@ param(
   [double]$PhiMax =  1.5707963267948966,  # +pi/2
 
   # PI reward
-  [double]$AlphaPi = 0.0005,
+  [double]$AlphaPi = 0.0002,
   [ValidateSet("tau_l1","power")]
   [string]$PiMetric = "tau_l1",
 
