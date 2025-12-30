@@ -267,11 +267,16 @@ class TwoLinkArmEnv(gym.Env):
             r_task = float(np.exp(-self.exp_k * dist))
 
         # (2) Regularizações: torque (base), velocidade, suavidade, tempo
-        # use tau_cmd magnitude as action penalty (what we actually sent)
         r_act = -self.lam_a * float(np.linalg.norm(tau_cmd))
         r_vel = -self.lam_v * float(np.linalg.norm(qdot) ** 2)
-        dtau = (np.array(tau_cmd, dtype=float) - np.array(self.prev_tau_cmd, dtype=float))
-        r_smooth = -self.lam_smooth * float(np.linalg.norm(dtau) ** 2)
+
+        # suavidade: usa delta tau_cmd
+        dtau_cmd = np.array(tau_cmd, dtype=float) - np.array(
+            self.prev_tau_cmd, dtype=float
+        )
+        dtau_cmd_norm = float(np.linalg.norm(dtau_cmd))
+        r_smooth = -self.lam_smooth * float(dtau_cmd_norm**2)
+
         r_time = -self.lam_time
 
         # >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
@@ -283,14 +288,17 @@ class TwoLinkArmEnv(gym.Env):
             tau_eff = np.array(tau_cmd, dtype=float).copy()
             tau_eff_source = "cmd"
         # <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+
         tau_l1_eff = float(abs(tau_eff[0]) + abs(tau_eff[1]))
+
+        # potência proxy (sempre calculada p/ métrica e logging)
+        power_abs = float(abs(tau_eff[0] * qdot[0]) + abs(tau_eff[1] * qdot[1]))
 
         # (3) PI term (physics-informed): valor SEMPRE é calculado p/ métricas.
         if self.pi_metric == "tau_l1":
             pi_metric_val = tau_l1_eff
         else:  # "power"
-            # potência proxy = sum |tau_i * qdot_i|
-            pi_metric_val = float(abs(tau_eff[0] * qdot[0]) + abs(tau_eff[1] * qdot[1]))
+            pi_metric_val = power_abs
 
         if self.use_pi_reward:
             pi_val = float(pi_metric_val)
@@ -313,7 +321,9 @@ class TwoLinkArmEnv(gym.Env):
         r_success = float(self.success_bonus) if done else 0.0
 
         # total
-        reward = float(r_task + r_act + r_pi + r_vel + r_smooth + r_time + r_q + r_success)
+        reward = float(
+            r_task + r_act + r_pi + r_vel + r_smooth + r_time + r_q + r_success
+        )
 
         # update shaping memory
         self.prev_dist = float(dist)
@@ -345,7 +355,7 @@ class TwoLinkArmEnv(gym.Env):
             "tau_cmd2": float(tau_cmd[1]),
             "tau_app1": float(tau_applied[0]),
             "tau_app2": float(tau_applied[1]),
-            # >>> added (robust effective torque + source)
+            # effective torque + source
             "tau_eff1": float(tau_eff[0]),
             "tau_eff2": float(tau_eff[1]),
             "tau_eff_source": tau_eff_source,
@@ -370,10 +380,12 @@ class TwoLinkArmEnv(gym.Env):
             "r_time": float(r_time),
             "r_q": float(r_q),
             "r_success": float(r_success),
+            # PI values
             "pi_value": float(pi_val),
             "pi_value_metric": float(pi_metric_val),
+            # extra metrics
             "power_abs": float(power_abs),
-            "dtau_cmd_norm": float(dtau_norm),
+            "dtau_cmd_norm": float(dtau_cmd_norm),
             "q_viol_norm2": float(q_viol_norm2),
             # safety metrics
             **filt_info,
@@ -548,7 +560,7 @@ class TwoLinkArmEnv(gym.Env):
             # clip magnitude
             tau_out = np.clip(tau_out, -self.tau_max, self.tau_max)
 
-            # clip rate (euclidian projection onto intersection of boxes)
+            # clip rate
             if self.dtau_max is not None and self.dtau_max > 0:
                 lo = self.prev_tau_applied - self.dtau_max
                 hi = self.prev_tau_applied + self.dtau_max

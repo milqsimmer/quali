@@ -35,6 +35,13 @@ def make_env_from_manifest(manifest: dict, render: bool, base_seed: int):
         success_tol=e["success_tol"],
         tau_max=e["tau_max"],
         lam_a=e["lam_a"],
+        task_reward=e.get("task_reward", "dist"),
+        exp_k=e.get("exp_k", 5.0),
+        lam_time=e.get("lam_time", 0.0),
+        lam_v=e.get("lam_v", 0.0),
+        lam_smooth=e.get("lam_smooth", 0.0),
+        lam_q=e.get("lam_q", 0.0),
+        success_bonus=e.get("success_bonus", 0.0),
         use_pi_reward=e["use_pi_reward"],
         pi_metric=e["pi_metric"],
         alpha_pi=e["alpha_pi"],
@@ -49,6 +56,28 @@ def make_env_from_manifest(manifest: dict, render: bool, base_seed: int):
     env = TimeLimit(env, max_episode_steps=e["max_steps"])
     env = Monitor(env)
     return env
+
+
+def _reset_env(env, seed: int):
+    out = env.reset(seed=seed)
+    if isinstance(out, tuple) and len(out) == 2:
+        obs, _info = out
+        return obs
+    return out
+
+
+def _step_env(env, action):
+    out = env.step(action)
+    # gym classic: obs, reward, done, info
+    if isinstance(out, tuple) and len(out) == 4:
+        obs, reward, done, info = out
+        return obs, reward, bool(done), info
+    # gym>=0.26: obs, reward, terminated, truncated, info
+    if isinstance(out, tuple) and len(out) == 5:
+        obs, reward, terminated, truncated, info = out
+        done = bool(terminated) or bool(truncated)
+        return obs, reward, done, info
+    raise RuntimeError(f"Formato inesperado retornado por env.step(): len={len(out)}")
 
 
 def evaluate(
@@ -80,6 +109,8 @@ def evaluate(
     d0s = []
     tau_efforts = []
     pi_vals = []
+    power_vals = []
+    dtau_cmd_vals = []
     filter_interventions = []
     filter_delta_norms = []
     tau_raw_norms = []
@@ -89,7 +120,7 @@ def evaluate(
 
     for ep in range(episodes):
         ep_seed = eval_seed_base + ep
-        obs = env.reset(seed=ep_seed)
+        obs = _reset_env(env, seed=ep_seed)
 
         d0 = float(getattr(env.unwrapped, "d0", np.nan))
         d0s.append(d0)
@@ -104,6 +135,8 @@ def evaluate(
 
         tau_sum = 0.0
         pi_sum = 0.0
+        power_sum = 0.0
+        dtau_cmd_sum = 0.0
         filt_count = 0
         filt_delta_sum = 0.0
 
@@ -111,7 +144,7 @@ def evaluate(
 
         while not done:
             action, _ = model.predict(obs, deterministic=True)
-            obs, reward, done, info = env.step(action)
+            obs, reward, done, info = _step_env(env, action)
 
             if ep == 0 and ep_len == 1:
                 print("DEBUG keys:", sorted(info.keys()))
@@ -124,6 +157,8 @@ def evaluate(
                     info.get("tau_eff_source"),
                 )
                 print("DEBUG tau_l1:", info.get("tau_l1"))
+                print("DEBUG power_abs:", info.get("power_abs"))
+                print("DEBUG dtau_cmd_norm:", info.get("dtau_cmd_norm"))
 
             ep_ret += float(reward)
             ep_len += 1
@@ -134,8 +169,9 @@ def evaluate(
             ep_r_pi += float(info.get("r_pi", 0.0))
 
             tau_sum += float(info.get("tau_l1", 0.0))
-
             pi_sum += float(info.get("pi_value", 0.0))
+            power_sum += float(info.get("power_abs", 0.0))
+            dtau_cmd_sum += float(info.get("dtau_cmd_norm", 0.0))
 
             filt = int(info.get("filter_intervened", 0))
             filt_count += filt
@@ -173,6 +209,8 @@ def evaluate(
 
         mean_tau = (tau_sum / ep_len) if ep_len > 0 else np.nan
         mean_pi = (pi_sum / ep_len) if ep_len > 0 else np.nan
+        mean_power = (power_sum / ep_len) if ep_len > 0 else np.nan
+        mean_dtau_cmd = (dtau_cmd_sum / ep_len) if ep_len > 0 else np.nan
         mean_filt_delta = (filt_delta_sum / max(1, ep_len)) if ep_len > 0 else np.nan
 
         final_dists.append(final_dist)
@@ -180,6 +218,8 @@ def evaluate(
         lengths.append(ep_len)
         tau_efforts.append(mean_tau)
         pi_vals.append(mean_pi)
+        power_vals.append(mean_power)
+        dtau_cmd_vals.append(mean_dtau_cmd)
         filter_interventions.append(filt_count / max(1, ep_len))
         filter_delta_norms.append(mean_filt_delta)
 
@@ -187,7 +227,8 @@ def evaluate(
             print(
                 f"[{exp_id}] seed={train_seed} ep {ep+1}/{episodes} ep_seed={ep_seed} "
                 f"d0={d0:.3f} final={final_dist:.3f} ret={ep_ret:.2f} len={ep_len} "
-                f"tau={mean_tau:.3f} pi={mean_pi:.3f} filt%={filter_interventions[-1]:.3f} succ={success}"
+                f"tau={mean_tau:.3f} pi={mean_pi:.3f} power={mean_power:.3f} "
+                f"dtau_cmd={mean_dtau_cmd:.3f} filt%={filter_interventions[-1]:.3f} succ={success}"
             )
 
         rows.append(
@@ -203,6 +244,8 @@ def evaluate(
                 "length": ep_len,
                 "mean_tau_l1": mean_tau,
                 "mean_pi_value": mean_pi,
+                "mean_power_abs": mean_power,
+                "mean_dtau_cmd_norm": mean_dtau_cmd,
                 "filter_intervention_rate": filter_interventions[-1],
                 "mean_filter_delta_tau_norm": mean_filt_delta,
                 "sum_r_dist": ep_r_dist,
@@ -217,6 +260,7 @@ def evaluate(
                 "pi_metric": last_info.get("pi_metric", ""),
                 "alpha_pi": last_info.get("alpha_pi", 0.0),
                 "safety_filter": last_info.get("safety_filter", ""),
+                "task_reward": last_info.get("task_reward", ""),
             }
         )
 
@@ -241,6 +285,10 @@ def evaluate(
         "std_tau_effort": float(np.nanstd(tau_efforts)),
         "mean_pi_value": float(np.nanmean(pi_vals)),
         "std_pi_value": float(np.nanstd(pi_vals)),
+        "mean_power_abs": float(np.nanmean(power_vals)),
+        "std_power_abs": float(np.nanstd(power_vals)),
+        "mean_dtau_cmd_norm": float(np.nanmean(dtau_cmd_vals)),
+        "std_dtau_cmd_norm": float(np.nanstd(dtau_cmd_vals)),
         "mean_filter_intervention_rate": float(np.nanmean(filter_interventions)),
         "std_filter_intervention_rate": float(np.nanstd(filter_interventions)),
         "mean_filter_delta_tau_norm": float(np.nanmean(filter_delta_norms)),

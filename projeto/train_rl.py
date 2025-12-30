@@ -60,14 +60,18 @@ def main():
     # env basic
     ap.add_argument("--tau-max", type=float, default=20.0)
     ap.add_argument("--lam-a", type=float, default=0.001)
-    # reward shaping (defaults preservam o modo antigo: task_reward="dist" e coef=0)
-    ap.add_argument("--task-reward", type=str, default="dist", choices=["dist", "progress", "exp"])
+
+    # reward shaping
+    ap.add_argument(
+        "--task-reward", type=str, default="dist", choices=["dist", "progress", "exp"]
+    )
     ap.add_argument("--exp-k", type=float, default=5.0)
     ap.add_argument("--lam-time", type=float, default=0.0)
     ap.add_argument("--lam-v", type=float, default=0.0)
     ap.add_argument("--lam-smooth", type=float, default=0.0)
     ap.add_argument("--lam-q", type=float, default=0.0)
     ap.add_argument("--success-bonus", type=float, default=0.0)
+
     ap.add_argument("--success-tol", type=float, default=0.05)
     ap.add_argument("--max-steps", type=int, default=200)
 
@@ -165,6 +169,13 @@ def main():
             "elbow": args.elbow,
             "tau_max": args.tau_max,
             "lam_a": args.lam_a,
+            "task_reward": args.task_reward,
+            "exp_k": args.exp_k,
+            "lam_time": args.lam_time,
+            "lam_v": args.lam_v,
+            "lam_smooth": args.lam_smooth,
+            "lam_q": args.lam_q,
+            "success_bonus": args.success_bonus,
             "success_tol": args.success_tol,
             "margin": args.margin,
             "min_tip_dist": args.min_tip_dist,
