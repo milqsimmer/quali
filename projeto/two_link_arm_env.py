@@ -109,6 +109,12 @@ class TwoLinkArmEnv(gym.Env):
         self.use_pi_reward = bool(use_pi_reward)
         self.pi_metric = pi_metric
         self.alpha_pi = float(alpha_pi)
+        if self.use_pi_reward and self.lam_a > 0:
+            print(
+                f"[INFO] Ajustando lam_a de {self.lam_a} para 0.0 porque use_pi_reward=1 "
+                f"(evitar dupla penalização de torque)."
+            )
+            self.lam_a = 0.0
 
         # safety
         self.safety_filter = safety_filter

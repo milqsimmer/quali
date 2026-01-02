@@ -39,19 +39,18 @@ Write-Host "=== RUN TRAIN (baseline + PI) ==="
 Write-Host ("Seeds: " + ($Seeds -join ","))
 Write-Host "Steps: $Steps | MaxSteps(ep): $MaxSteps | SuccessTol: $SuccessTol"
 Write-Host "A2: margin=$Margin minTipDist=$MinTipDist phi=[$PhiMin,$PhiMax]"
-Write-Host "TauMax=$TauMax lam_a=$LamA"
+Write-Host "TauMax=$TauMax lam_a(BASELINE)=$LamA | lam_a(PI)=0.0 (avoid double torque penalty)"
 Write-Host "TaskReward=$TaskReward exp_k=$ExpK lt=$LamTime lv=$LamV ls=$LamSmooth lq=$LamQ sb=$SuccessBonus"
 Write-Host "PI: metric=$PiMetric alpha=$AlphaPi"
 Write-Host "ExpPrefix: $ExpPrefix"
 Write-Host "-----------------------"
 
-# Base args (sem PI!)
+# Base args (comuns aos dois modos). NOTE: SEM --lam-a aqui!
 $baseArgs = @(
   "--steps", $Steps,
   "--max-steps", $MaxSteps,
   "--seed", 0,  # placeholder
   "--tau-max", $TauMax,
-  "--lam-a", $LamA,
   "--success-tol", $SuccessTol,
 
   "--task-reward", $TaskReward,
@@ -75,6 +74,7 @@ $modes = @(
     Args=@(
       "--control","direct",
       "--safety-filter","none",
+      "--lam-a",$LamA,  # baseline mantém penalização de ação
       "--exp-id","$ExpPrefix`__baseline_direct"
     )
   },
@@ -86,6 +86,7 @@ $modes = @(
       "--safety-filter","none",
       "--pi-metric",$PiMetric,
       "--alpha-pi",$AlphaPi,
+      "--lam-a",0.0,    # PI zera lam_a para evitar dupla penalização (r_act + r_pi)
       "--exp-id","$ExpPrefix`__pi_direct__$PiMetric`_a$AlphaPi"
     )
   }
