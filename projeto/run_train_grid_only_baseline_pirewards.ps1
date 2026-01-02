@@ -8,6 +8,14 @@ param(
   [double]$TauMax = 20.0,
   [double]$LamA = 0.001,
   [double]$SuccessTol = 0.05,
+  [ValidateSet("dist","progress","exp")]
+  [string]$TaskReward = "dist",
+  [double]$ExpK = 5.0,
+  [double]$LamTime = 0.0,
+  [double]$LamV = 0.0,
+  [double]$LamSmooth = 0.0,
+  [double]$LamQ = 0.0,
+  [double]$SuccessBonus = 0.0,
 
   # A2 sampler
   [double]$Margin = 0.02,
@@ -20,111 +28,68 @@ param(
   [ValidateSet("tau_l1","power")]
   [string]$PiMetric = "tau_l1",
 
-  # Safety filter
-  [ValidateSet("none","proj_box","proj_box_jointlimit")]
-  [string]$SafetyFilter = "proj_box_jointlimit",
-  [double]$DtauMax = 2.0,
-  [double]$QMargin = 0.15,
-
-  # Residual nominal PD
-  [double]$Kp = 10.0,
-  [double]$Kd = 1.0,
-  [ValidateSet("auto","up","down")]
-  [string]$Elbow = "auto",
-
-  # Grid selection
-  [ValidateSet("main4","extended","factorial")]
-  [string]$Grid = "extended",
-
   # Utility
+  [string]$ExpPrefix = "A0",
   [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== RUN TRAIN GRID (TORQUE) ==="
+Write-Host "=== RUN TRAIN (baseline + PI) ==="
 Write-Host ("Seeds: " + ($Seeds -join ","))
 Write-Host "Steps: $Steps | MaxSteps(ep): $MaxSteps | SuccessTol: $SuccessTol"
 Write-Host "A2: margin=$Margin minTipDist=$MinTipDist phi=[$PhiMin,$PhiMax]"
 Write-Host "TauMax=$TauMax lam_a=$LamA"
+Write-Host "TaskReward=$TaskReward exp_k=$ExpK lt=$LamTime lv=$LamV ls=$LamSmooth lq=$LamQ sb=$SuccessBonus"
 Write-Host "PI: metric=$PiMetric alpha=$AlphaPi"
-Write-Host "Safety(default): $SafetyFilter dtau=$DtauMax q_margin=$QMargin"
-Write-Host "Residual: kp=$Kp kd=$Kd elbow=$Elbow"
-Write-Host "Grid: $Grid"
+Write-Host "ExpPrefix: $ExpPrefix"
 Write-Host "-----------------------"
 
-# Base args (sempre presentes)
+# Base args (sem PI!)
 $baseArgs = @(
   "--steps", $Steps,
   "--max-steps", $MaxSteps,
-  "--seed", 0,  # placeholder (substituído no loop)
+  "--seed", 0,  # placeholder
   "--tau-max", $TauMax,
   "--lam-a", $LamA,
   "--success-tol", $SuccessTol,
+
+  "--task-reward", $TaskReward,
+  "--exp-k", $ExpK,
+  "--lam-time", $LamTime,
+  "--lam-v", $LamV,
+  "--lam-smooth", $LamSmooth,
+  "--lam-q", $LamQ,
+  "--success-bonus", $SuccessBonus,
+
   "--margin", $Margin,
   "--min-tip-dist", $MinTipDist,
   "--phi-min", $PhiMin,
-  "--phi-max", $PhiMax,
-  "--pi-metric", $PiMetric,
-  "--alpha-pi", $AlphaPi,
-  "--dtau-max", $DtauMax,
-  "--q-margin", $QMargin
+  "--phi-max", $PhiMax
 )
 
-# Define variants
-# # Observação: não passamos --exp-id, então o train_rl.py cria exp_id automaticamente por eixo e
-# # agrupa seeds no mesmo diretório (um zip por seed).
-# $modes = @()
-
-# if ($Grid -eq "main4") {
-#   $modes = @(
-#     @{ Name="baseline_direct"; Args=@("--control","direct","--safety-filter","none") },
-#     @{ Name="pi_direct";       Args=@("--control","direct","--use-pi-reward","--safety-filter","none") },
-#     @{ Name="sf_direct";       Args=@("--control","direct","--safety-filter",$SafetyFilter) },
-#     @{ Name="residual";        Args=@("--control","residual","--safety-filter","none","--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) }
-#   )
-# }
-# elseif ($Grid -eq "extended") {
-#   # recomendado: mantém separação por eixo de controle, mas inclui combinações mais úteis
-#   $modes = @(
-#     # DIRECT
-#     @{ Name="baseline_direct";   Args=@("--control","direct","--safety-filter","none") },
-#     @{ Name="pi_direct";         Args=@("--control","direct","--use-pi-reward","--safety-filter","none") },
-#     @{ Name="sf_direct";         Args=@("--control","direct","--safety-filter",$SafetyFilter) },
-#     @{ Name="pi_sf_direct";      Args=@("--control","direct","--use-pi-reward","--safety-filter",$SafetyFilter) },
-
-#     # RESIDUAL
-#     @{ Name="baseline_residual"; Args=@("--control","residual","--safety-filter","none","--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) },
-#     @{ Name="pi_residual";       Args=@("--control","residual","--use-pi-reward","--safety-filter","none","--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) },
-#     @{ Name="sf_residual";       Args=@("--control","residual","--safety-filter",$SafetyFilter,"--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) },
-#     @{ Name="pi_sf_residual";    Args=@("--control","residual","--use-pi-reward","--safety-filter",$SafetyFilter,"--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) }
-#   )
-# }
-# else {
-#   # factorial: 2 (control) x 2 (pi) x 3 (sf)
-#   $controls = @("direct","residual")
-#   $pis = @($false, $true)
-#   $sfs = @("none","proj_box","proj_box_jointlimit")
-
-#   foreach ($c in $controls) {
-#     foreach ($pi in $pis) {
-#       foreach ($sf in $sfs) {
-#         $name = "c=$c__pi=$([int]$pi)__sf=$sf"
-#         $args = @("--control",$c,"--safety-filter",$sf)
-#         if ($pi) { $args += @("--use-pi-reward") }
-#         if ($c -eq "residual") { $args += @("--kp",$Kp,"--kd",$Kd,"--elbow",$Elbow) }
-#         $modes += @{ Name=$name; Args=$args }
-#       }
-#     }
-#   }
-# }
-
-# Define variants (somente baseline e PI-reward)
+# Dois modos só (baseline + PI)
 $modes = @(
-  @{ Name="baseline_direct"; Args=@("--control","direct","--safety-filter","none") },
-  @{ Name="pi_direct";       Args=@("--control","direct","--use-pi-reward","--safety-filter","none") }
+  @{
+    Name="baseline_direct"
+    Args=@(
+      "--control","direct",
+      "--safety-filter","none",
+      "--exp-id","$ExpPrefix`__baseline_direct"
+    )
+  },
+  @{
+    Name="pi_direct"
+    Args=@(
+      "--control","direct",
+      "--use-pi-reward",
+      "--safety-filter","none",
+      "--pi-metric",$PiMetric,
+      "--alpha-pi",$AlphaPi,
+      "--exp-id","$ExpPrefix`__pi_direct__$PiMetric`_a$AlphaPi"
+    )
+  }
 )
-
 
 foreach ($m in $modes) {
   Write-Host ""
@@ -134,8 +99,9 @@ foreach ($m in $modes) {
     Write-Host ""
     Write-Host "-> Training seed=$s"
 
-    # copia base args e troca o seed
     $cmd = @("python","train_rl.py") + $baseArgs + $m.Args
+
+    # troca seed
     for ($i=0; $i -lt $cmd.Length; $i++) {
       if ($cmd[$i] -eq "--seed") { $cmd[$i+1] = $s; break }
     }

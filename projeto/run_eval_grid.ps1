@@ -12,7 +12,8 @@ param(
   [string]$OutDir = "results",
 
   [switch]$Render,
-  [switch]$PrintEpisodes
+  [switch]$PrintEpisodes,
+  [switch]$Strict
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,6 +27,7 @@ Write-Host ("Train seeds: " + ($TrainSeeds -join ", "))
 Write-Host "ExpId: $ExpId"
 Write-Host "EvalSeedBase: $EvalSeedBase | Episodes: $Episodes"
 Write-Host "OutDir: $OutDir"
+Write-Host "Strict: $Strict"
 Write-Host "----------------------"
 
 if (!(Test-Path $OutDir)) {
@@ -47,6 +49,7 @@ foreach ($s in $TrainSeeds) {
 
   if ($Render) { $cmd += "--render" }
   if ($PrintEpisodes) { $cmd += "--print-episodes" }
+  if ($Strict) { $cmd += "--strict" }
 
   Write-Host ("CMD: " + ($cmd -join " "))
   & $cmd[0] $cmd[1..($cmd.Length-1)]
