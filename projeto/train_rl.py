@@ -13,7 +13,10 @@ from two_link_arm_env import TwoLinkArmEnv
 def build_exp_id(args) -> str:
     parts = []
     parts.append(f"ctrl-{args.control}")
-    parts.append(f"pi-{int(args.use_pi_reward)}-{args.pi_metric}-a{args.alpha_pi:g}")
+    parts.append(
+        f"pi-{int(args.use_pi_reward)}-{args.pi_metric}-a{args.alpha_pi:g}"
+        f"-pg{args.pi_gating}-d{args.pi_gate_dist:g}-dm{(args.pi_gate_min_dist if args.pi_gate_min_dist is not None else 'st')}"
+    )
     parts.append(f"sf-{args.safety_filter}-dt{args.dtau_max:g}-qm{args.q_margin:g}")
     if args.control == "residual":
         parts.append(f"pd-kp{args.kp:g}-kd{args.kd:g}-el{args.elbow}")
@@ -43,6 +46,11 @@ def main():
     ap.add_argument("--use-pi-reward", action="store_true")
     ap.add_argument("--pi-metric", choices=["tau_l1", "power"], default="tau_l1")
     ap.add_argument("--alpha-pi", type=float, default=0.0005)
+
+    # PI gating (distance-based)
+    ap.add_argument("--pi-gating", choices=["none", "distance"], default="none")
+    ap.add_argument("--pi-gate-dist", type=float, default=0.25)
+    ap.add_argument("--pi-gate-min-dist", type=float, default=None)
 
     ap.add_argument(
         "--safety-filter",
@@ -117,6 +125,10 @@ def main():
         use_pi_reward=args.use_pi_reward,
         pi_metric=args.pi_metric,
         alpha_pi=args.alpha_pi,
+        # PI gating
+        pi_gating=args.pi_gating,
+        pi_gate_dist=args.pi_gate_dist,
+        pi_gate_min_dist=args.pi_gate_min_dist,
         # safety
         safety_filter=args.safety_filter,
         dtau_max=args.dtau_max,
@@ -161,6 +173,9 @@ def main():
             "use_pi_reward": bool(args.use_pi_reward),
             "pi_metric": args.pi_metric,
             "alpha_pi": args.alpha_pi,
+            "pi_gating": args.pi_gating,
+            "pi_gate_dist": args.pi_gate_dist,
+            "pi_gate_min_dist": args.pi_gate_min_dist,
             "safety_filter": args.safety_filter,
             "dtau_max": args.dtau_max,
             "q_margin": args.q_margin,

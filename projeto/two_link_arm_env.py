@@ -59,6 +59,10 @@ class TwoLinkArmEnv(gym.Env):
         use_pi_reward=False,
         pi_metric="tau_l1",  # "tau_l1" ou "power"
         alpha_pi=0.0005,
+        # ----- PI-reward gating (distance-based) -----
+        pi_gating="none",  # "none" | "distance"
+        pi_gate_dist=0.25,  # começa a ligar PI quando dist <= pi_gate_dist
+        pi_gate_min_dist=None,  # onde PI fica 100% (default = success_tol)
         # ----- safety filter -----
         safety_filter="none",  # "none", "proj_box", "proj_box_jointlimit"
         dtau_max=2.0,  # rate limit por passo (N·m)
@@ -115,6 +119,14 @@ class TwoLinkArmEnv(gym.Env):
                 f"(evitar dupla penalização de torque)."
             )
             self.lam_a = 0.0
+
+        # PI gating
+        assert pi_gating in ("none", "distance")
+        self.pi_gating = str(pi_gating)
+        self.pi_gate_dist = float(pi_gate_dist)
+        self.pi_gate_min_dist = (
+            None if (pi_gate_min_dist is None) else float(pi_gate_min_dist)
+        )
 
         # safety
         self.safety_filter = safety_filter
@@ -306,9 +318,32 @@ class TwoLinkArmEnv(gym.Env):
         else:  # "power"
             pi_metric_val = power_abs
 
+            # (3) PI term (physics-informed): valor SEMPRE é calculado p/ métricas.
+        if self.pi_metric == "tau_l1":
+            pi_metric_val = tau_l1_eff
+        else:  # "power"
+            pi_metric_val = power_abs
+
+        # gating por distância: PI só pesa perto do alvo
+        # g in [0,1], onde g=0 (longe) e g=1 (muito perto)
+        if self.pi_gating == "distance":
+            d_gate = float(self.pi_gate_dist)
+            d_min = float(
+                self.success_tol
+                if self.pi_gate_min_dist is None
+                else self.pi_gate_min_dist
+            )
+            # segurança numérica e coerência
+            if d_gate <= d_min:
+                g_pi = 1.0 if dist <= d_gate else 0.0
+            else:
+                g_pi = float(np.clip((d_gate - dist) / (d_gate - d_min), 0.0, 1.0))
+        else:
+            g_pi = 1.0
+
         if self.use_pi_reward:
             pi_val = float(pi_metric_val)
-            r_pi = -self.alpha_pi * pi_val
+            r_pi = -self.alpha_pi * pi_val * g_pi
             alpha_used = self.alpha_pi
         else:
             pi_val = 0.0
@@ -344,6 +379,14 @@ class TwoLinkArmEnv(gym.Env):
             "control": self.control,
             "use_pi_reward": int(self.use_pi_reward),
             "pi_metric": self.pi_metric,
+            "pi_gate": float(g_pi),
+            "pi_gate_dist": float(self.pi_gate_dist),
+            "pi_gate_min_dist": float(
+                self.success_tol
+                if self.pi_gate_min_dist is None
+                else self.pi_gate_min_dist
+            ),
+            "pi_gating": self.pi_gating,
             "alpha_pi": float(alpha_used),
             "safety_filter": self.safety_filter,
             # reward config (for reproducibility)
