@@ -29,7 +29,7 @@
   },
   "train": {
     "steps": 300000,
-    "seed": 4,
+    "seed": 19,
     "algo": "PPO",
     "learning_rate": 0.0003,
     "n_steps": 2048,
@@ -40,6 +40,6 @@
     "clip_range": 0.2
   },
   "artifacts": {
-    "model_path": "runs_torque\\A0p__pi_direct__power_a2E-05\\ppo_model_seed4.zip"
+    "model_path": "runs_torque\\A0p__pi_direct__power_a2E-05\\ppo_model_seed19.zip"
   }
 }
