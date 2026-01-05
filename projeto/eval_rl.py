@@ -262,6 +262,11 @@ def evaluate(
                 "use_pi_reward": last_info.get("use_pi_reward", 0),
                 "pi_metric": last_info.get("pi_metric", ""),
                 "alpha_pi": last_info.get("alpha_pi", 0.0),
+                # --- PI gating (logging) ---
+                "pi_gating": last_info.get("pi_gating", ""),
+                "pi_gate": last_info.get("pi_gate", np.nan),
+                "pi_gate_dist": last_info.get("pi_gate_dist", np.nan),
+                "pi_gate_min_dist": last_info.get("pi_gate_min_dist", np.nan),
                 "safety_filter": last_info.get("safety_filter", ""),
                 "task_reward": last_info.get("task_reward", ""),
             }

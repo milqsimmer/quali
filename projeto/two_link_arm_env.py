@@ -318,12 +318,6 @@ class TwoLinkArmEnv(gym.Env):
         else:  # "power"
             pi_metric_val = power_abs
 
-            # (3) PI term (physics-informed): valor SEMPRE é calculado p/ métricas.
-        if self.pi_metric == "tau_l1":
-            pi_metric_val = tau_l1_eff
-        else:  # "power"
-            pi_metric_val = power_abs
-
         # gating por distância: PI só pesa perto do alvo
         # g in [0,1], onde g=0 (longe) e g=1 (muito perto)
         if self.pi_gating == "distance":

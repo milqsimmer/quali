@@ -1,13 +1,13 @@
 {
-  "exp_id": "A0p__baseline_direct",
+  "exp_id": "A0p__pi_power_a2e-5__gate_d0p25_dm0p05",
   "env": {
     "control": "direct",
-    "use_pi_reward": false,
-    "pi_metric": "tau_l1",
-    "alpha_pi": 0.0005,
-    "pi_gating": "none",
+    "use_pi_reward": true,
+    "pi_metric": "power",
+    "alpha_pi": 2e-05,
+    "pi_gating": "distance",
     "pi_gate_dist": 0.25,
-    "pi_gate_min_dist": null,
+    "pi_gate_min_dist": 0.05,
     "safety_filter": "none",
     "dtau_max": 2.0,
     "q_margin": 0.15,
@@ -15,7 +15,7 @@
     "kd": 1.0,
     "elbow": "auto",
     "tau_max": 20.0,
-    "lam_a": 0.001,
+    "lam_a": 0.0,
     "task_reward": "dist",
     "exp_k": 5.0,
     "lam_time": 0.0,
@@ -43,6 +43,6 @@
     "clip_range": 0.2
   },
   "artifacts": {
-    "model_path": "runs_torque\\A0p__baseline_direct\\ppo_model_seed4.zip"
+    "model_path": "runs_torque\\A0p__pi_power_a2e-5__gate_d0p25_dm0p05\\ppo_model_seed4.zip"
   }
 }

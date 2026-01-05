@@ -1,4 +1,6 @@
-# .\run_eval_baseline_pi.ps1 -ExpPrefix A0 -PiMetric tau_l1 -AlphaPi 0.0002
+# run_eval_baseline_pi.ps1
+
+# run: .\run_eval_baseline_pi.ps1 -ExpPrefix A0p -TrainSeeds (0..4) -PiExpId "A0p__pi_power_a2e-5__gate_d0p25_dm0p05"
 
 
 param(
@@ -7,11 +9,14 @@ param(
   [int]$TrainSeedMin = 0,
   [int]$TrainSeedMax = 4,
 
-  # IDs dos experimentos (devem bater com o run_train.ps1 corrigido)
+  # IDs
   [string]$ExpPrefix = "A0",
   [ValidateSet("tau_l1","power")]
   [string]$PiMetric = "tau_l1",
   [double]$AlphaPi = 0.0002,
+
+  # Override opcional pro PI (quando exp-id é custom, ex.: com gating no nome)
+  [string]$PiExpId = "",
 
   # Avaliação
   [int]$EvalSeedBase = 1000,
@@ -33,9 +38,12 @@ if ($TrainSeeds.Count -eq 0) {
   $TrainSeeds = @($TrainSeedMin..$TrainSeedMax)
 }
 
-# Exp-ids exatamente como no script de treino corrigido
+# evita notação científica no alpha
+$alphaStr = "{0:0.################}" -f $AlphaPi
+
 $baselineExpId = "$ExpPrefix`__baseline_direct"
-$piExpId       = "$ExpPrefix`__pi_direct__$PiMetric`_a$AlphaPi"
+$defaultPiExpId = "$ExpPrefix`__pi_direct__$PiMetric`_a$alphaStr"
+$piExpId = if ($PiExpId -ne "") { $PiExpId } else { $defaultPiExpId }
 
 $modes = @(
   @{ Name="baseline"; ExpId=$baselineExpId },
