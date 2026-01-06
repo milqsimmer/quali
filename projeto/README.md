@@ -248,8 +248,15 @@ E o eval (vai ler do manifest.json, então não precisa repetir nada):
 python eval_rl.py --exp-id <EXP_ID> --train-seed 0 --eval-seed-base 1000 --episodes 200 --out-dir results
 ```
 
+## v5.1:
+4 arquis da taxonomia:
 
-python eval_rl.py --exp-id ctrl-direct__pi-1-power-a2e-05__sf-proj_box_jointlimit-dt2-qm0.15__tau20-lama0__rew-exp-sb0-lt0-lv0-ls0-lq0-ek10__a2-m0.02-md0.07-phi-1.5708_1.5708__h200 --train-seed 0 --eval-seed-base 1000 --episodes 200 --out-dir results
-
-
+train:
+```
+.\run_train_taxonomy.ps1 -ExpPrefix A0p -TaskReward exp -ExpK 10 -PiMetric power -AlphaPi 0.00002
+```
+eval:
+```
+.\run_eval_taxonomy.ps1 -ExpPrefix A0p -PiMetric power -AlphaPi 0.00002
+```
 
