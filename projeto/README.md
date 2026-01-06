@@ -219,8 +219,6 @@ smoke test 2:
 
 
 
-
-
 ## v4.2:
 
 .\run_train_grid_only_baseline_pirewards.ps1
@@ -228,10 +226,30 @@ smoke test 2:
 .\run_eval_grid.ps1 -EvalSeedBase 1000 -Episodes 200 -OutDir results
 
 
+## v5.0:
+Como rodar PIRL + safety-filter:
+```
+python train_rl.py \
+  --control direct \
+  --use-pi-reward --pi-metric power --alpha-pi 2e-5 \
+  --safety-filter proj_box_jointlimit --dtau-max 2.0 --q-margin 0.15 \
+  --task-reward exp --exp-k 10 \
+  --tau-max 20 --max-steps 200 --steps 300000 \
+  --seed 0
+
+```
+```
+python train_rl.py --control direct --use-pi-reward --pi-metric power --alpha-pi 2e-5 --safety-filter proj_box_jointlimit --dtau-max 2.0 --q-margin 0.15 --task-reward exp --exp-k 10 --tau-max 20 --max-steps 200 --steps 300000 --seed 0
+
+```
+
+E o eval (vai ler do manifest.json, então não precisa repetir nada):
+```
+python eval_rl.py --exp-id <EXP_ID> --train-seed 0 --eval-seed-base 1000 --episodes 200 --out-dir results
+```
 
 
-
-
+python eval_rl.py --exp-id ctrl-direct__pi-1-power-a2e-05__sf-proj_box_jointlimit-dt2-qm0.15__tau20-lama0__rew-exp-sb0-lt0-lv0-ls0-lq0-ek10__a2-m0.02-md0.07-phi-1.5708_1.5708__h200 --train-seed 0 --eval-seed-base 1000 --episodes 200 --out-dir results
 
 
 

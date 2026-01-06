@@ -90,6 +90,14 @@ def main():
 
     args = ap.parse_args()
 
+    # Evita "dupla penalização" de torque quando PI-reward está ativo:
+    # - r_act já penaliza ||tau_cmd||
+    # - r_pi penaliza uma métrica baseada em torque/energia (tau_l1 ou power)
+    # Por padrão, zeramos lam_a quando use_pi_reward=True.
+    if args.use_pi_reward and args.lam_a != 0.0:
+        print(f"[WARN] use_pi_reward=True -> sobrescrevendo --lam-a {args.lam_a} para 0.0 (evitar dupla penalização).")
+        args.lam_a = 0.0
+
     exp_id = args.exp_id.strip() or build_exp_id(args)
 
     env = TwoLinkArmEnv(

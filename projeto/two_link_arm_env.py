@@ -346,6 +346,8 @@ class TwoLinkArmEnv(gym.Env):
             "pi_metric": self.pi_metric,
             "alpha_pi": float(alpha_used),
             "safety_filter": self.safety_filter,
+            "dtau_max": float(self.dtau_max),
+            "q_margin": float(self.q_margin),
             # reward config (for reproducibility)
             "task_reward": self.task_reward,
             "exp_k": float(self.exp_k),

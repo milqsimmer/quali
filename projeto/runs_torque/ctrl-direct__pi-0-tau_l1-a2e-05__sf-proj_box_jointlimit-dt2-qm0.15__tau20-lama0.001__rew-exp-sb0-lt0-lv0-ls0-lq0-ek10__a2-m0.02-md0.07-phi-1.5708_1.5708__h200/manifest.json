@@ -1,0 +1,45 @@
+{
+  "exp_id": "ctrl-direct__pi-0-tau_l1-a2e-05__sf-proj_box_jointlimit-dt2-qm0.15__tau20-lama0.001__rew-exp-sb0-lt0-lv0-ls0-lq0-ek10__a2-m0.02-md0.07-phi-1.5708_1.5708__h200",
+  "env": {
+    "control": "direct",
+    "use_pi_reward": false,
+    "pi_metric": "tau_l1",
+    "alpha_pi": 2e-05,
+    "safety_filter": "proj_box_jointlimit",
+    "dtau_max": 2.0,
+    "q_margin": 0.15,
+    "kp": 10.0,
+    "kd": 1.0,
+    "elbow": "auto",
+    "tau_max": 20.0,
+    "lam_a": 0.001,
+    "task_reward": "exp",
+    "exp_k": 10.0,
+    "lam_time": 0.0,
+    "lam_v": 0.0,
+    "lam_smooth": 0.0,
+    "lam_q": 0.0,
+    "success_bonus": 0.0,
+    "success_tol": 0.05,
+    "margin": 0.02,
+    "min_tip_dist": 0.07,
+    "phi_min": -1.5707963267948966,
+    "phi_max": 1.5707963267948966,
+    "max_steps": 200
+  },
+  "train": {
+    "steps": 300000,
+    "seed": 0,
+    "algo": "PPO",
+    "learning_rate": 0.0003,
+    "n_steps": 2048,
+    "batch_size": 256,
+    "n_epochs": 10,
+    "gamma": 0.99,
+    "gae_lambda": 0.95,
+    "clip_range": 0.2
+  },
+  "artifacts": {
+    "model_path": "runs_torque\\ctrl-direct__pi-0-tau_l1-a2e-05__sf-proj_box_jointlimit-dt2-qm0.15__tau20-lama0.001__rew-exp-sb0-lt0-lv0-ls0-lq0-ek10__a2-m0.02-md0.07-phi-1.5708_1.5708__h200\\ppo_model_seed0.zip"
+  }
+}

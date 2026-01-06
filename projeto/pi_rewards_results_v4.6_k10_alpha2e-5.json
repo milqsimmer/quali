@@ -1,0 +1,76 @@
+{
+  "label": "pi-rewards_v4.6_k10",
+  "notes": {
+    "comparison": "baseline_direct vs pi_direct (pi_metric=power) with alpha_pi=2e-5, k(exp_k)=10",
+    "pi_design": "PI term acts as regularizer; in PI runs lam_a is set to 0 to avoid double torque penalization (r_act + r_pi)."
+  },
+  "baseline": {
+    "exp_id": "A0p__baseline_direct",
+    "overall": {
+      "episodes": 2000,
+      "n_train_seeds": 10,
+      "success_rate": 0.3565,
+      "timeout_rate": 0.6435,
+      "mean_final_distance": 0.3935662104028529,
+      "std_final_distance": 0.32882313795720364,
+      "mean_return": -83.79182206028824,
+      "std_return": 48.41573644956971,
+      "mean_ep_len": 156.1395,
+      "std_ep_len": 66.67248045164352,
+      "mean_tau_l1": 1.35257594441707,
+      "mean_power_abs": 12.514693482402505,
+      "mean_pi_value": 0.0,
+      "mean_filter_intervention_rate": 0.0,
+      "mean_filter_delta_tau_norm": 0.0
+    },
+    "success_only": {
+      "n_success": 713,
+      "success_rate": 0.3565,
+      "mean_tau_l1_success": 1.518899416198986,
+      "mean_power_abs_success": 18.522784236401293,
+      "mean_len_success": 76.96914446002805,
+      "mean_final_distance_success": 0.037094502165288666
+    }
+  },
+  "pi_reward": {
+    "exp_id": "A0p__pi_direct__power_a2E-05",
+    "config": {
+      "pi_metric": "power",
+      "alpha_pi": 2e-05,
+      "exp_k": 10
+    },
+    "overall": {
+      "episodes": 2000,
+      "n_train_seeds": 10,
+      "success_rate": 0.406,
+      "timeout_rate": 0.594,
+      "mean_final_distance": 0.3436459209895142,
+      "std_final_distance": 0.32510815005983107,
+      "mean_return": -79.48089705099832,
+      "std_return": 46.127950009911736,
+      "mean_ep_len": 151.784,
+      "std_ep_len": 67.17578162417172,
+      "mean_tau_l1": 1.2808992105855104,
+      "mean_power_abs": 12.19043509784292,
+      "mean_pi_value": 12.19043509784292,
+      "mean_filter_intervention_rate": 0.0,
+      "mean_filter_delta_tau_norm": 0.0
+    },
+    "success_only": {
+      "n_success": 812,
+      "success_rate": 0.406,
+      "mean_tau_l1_success": 1.4437584352524806,
+      "mean_power_abs_success": 17.18375926864495,
+      "mean_len_success": 81.24137931034483,
+      "mean_final_distance_success": 0.03770671325995177
+    }
+  },
+  "delta": {
+    "success_rate_pp": 4.950000000000005,
+    "success_rate_abs": 0.049500000000000044,
+    "timeout_rate_abs": -0.04949999999999999,
+    "mean_final_distance_abs": -0.0499202894133387,
+    "mean_tau_l1_success_abs": -0.07514098094650534,
+    "mean_power_abs_success_abs": -1.3390249677563446
+  }
+}

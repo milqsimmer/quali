@@ -260,6 +260,8 @@ def evaluate(
                 "pi_metric": last_info.get("pi_metric", ""),
                 "alpha_pi": last_info.get("alpha_pi", 0.0),
                 "safety_filter": last_info.get("safety_filter", ""),
+                "dtau_max": last_info.get("dtau_max", np.nan),
+                "q_margin": last_info.get("q_margin", np.nan),
                 "task_reward": last_info.get("task_reward", ""),
             }
         )
@@ -272,6 +274,13 @@ def evaluate(
         "episodes": episodes,
         "eval_seed_base": eval_seed_base,
         "eval_seeds_range": [eval_seed_base, eval_seed_base + episodes - 1],
+        "control": manifest["env"].get("control", ""),
+        "use_pi_reward": int(manifest["env"].get("use_pi_reward", 0)),
+        "pi_metric": manifest["env"].get("pi_metric", ""),
+        "alpha_pi": float(manifest["env"].get("alpha_pi", 0.0)),
+        "safety_filter": manifest["env"].get("safety_filter", ""),
+        "dtau_max": float(manifest["env"].get("dtau_max", np.nan)),
+        "q_margin": float(manifest["env"].get("q_margin", np.nan)),
         "success_rate": succ / max(1, episodes),
         "mean_d0": float(np.nanmean(d0s)),
         "std_d0": float(np.nanstd(d0s)),
