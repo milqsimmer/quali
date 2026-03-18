@@ -2,7 +2,7 @@ param(
   # Treinos a avaliar
   [int[]]$TrainSeeds = @(),
   [int]$TrainSeedMin = 0,
-  [int]$TrainSeedMax = 9,
+  [int]$TrainSeedMax = 2,
 
   # IDs
   [string]$ExpPrefix = "A0p",

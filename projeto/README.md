@@ -106,8 +106,8 @@ Violação min_dist: 0/20000
 r (min/mean/max) = 0.0204 / 0.6546 / 0.9799
 d_tip0 (min/mean/max) = 0.0712 / 0.7553 / 1.3884
 
-
 ## Rodando o Treino
+
 ```python
   python train_rl.py --mode pirl --seed 0
 ```
@@ -127,12 +127,15 @@ ou, para 5 seeds:
 ```
 
 ou com executavel > No PowerShell, dentro da pasta do projeto:
+
 ```
 .\run_eval.ps1
 ```
 
 ## Coletar todos os resultados
+
 Depois de rodar vários evals (ex.: results/eval_seed0_train0.csv, results/eval_seed0_train1.csv, ...):
+
 ```
 python merge_results.py --pattern "results/*.csv" --out-dir results_agg
 ```
@@ -140,10 +143,13 @@ python merge_results.py --pattern "results/*.csv" --out-dir results_agg
 # Versão 4.0 - torque control
 
 ## Treino
+
 ```
 .\run_train_grid.ps1 -Grid extended -Steps 300000 -MaxSteps 200 -Seeds @(0,1,2,3,4)
 ```
+
 ## Eval
+
 ```
 .\run_eval_grid.ps1 -EvalSeedBase 1000 -Episodes 200 -OutDir results
 
@@ -178,17 +184,16 @@ barras (com CI95 quando existir) de success_rate, final_distance, tau_l1, pi_val
 curvas de success_rate por bins de d0 (top configs)
 
 Como rodar (exemplo típico)
-1) Agregar
-```python aggregate_results.py --results-dir results --out-dir results_agg```
 
+1) Agregar
+   ``python aggregate_results.py --results-dir results --out-dir results_agg``
 
 (Se quiser filtrar só evals com exatamente M episódios, útil pro seu “padrão ouro”)
 
-```python aggregate_result.py --results-dir results --out-dir results_agg --require-episodes 100```
+``python aggregate_result.py --results-dir results --out-dir results_agg --require-episodes 100``
 
 2) Plotar
-```python plot_results.py --across results_agg/aggregated_across_seeds.csv --d0bins results_agg/aggregated_d```
-
+   ``python plot_results.py --across results_agg/aggregated_across_seeds.csv --d0bins results_agg/aggregated_d``
 
 ### Como usar make_latex_tables_d0bins.py:
 
@@ -196,14 +201,14 @@ Como rodar (exemplo típico)
 
 python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seeds.csv --out-tex results/table_d0bins.tex
 
-
 2) Um .tex por bin (recomendado se quiser colocar várias tabelas menores):
 
 python make_latex_tables_d0bins.py --in-csv results/aggregated_d0bin_across_seeds.csv --out-dir results/tables_d0 --split
 
-
 ### Testar os 4 modos:
+
 smoke test 1:
+
 > python train_rl.py --exp-id ctrl-direct__pi-0_test --control direct --seed 0 --steps 20000
 
 > python train_rl.py --exp-id ctrl-direct__pi-1_test --control direct --use-pi-reward --alpha-pi 0.0005 --pi-metric tau_l1 --seed 0 --steps 20000
@@ -213,11 +218,10 @@ smoke test 1:
 > python eval_rl.py --exp-id ctrl-direct__pi-1_test --train-seed 0 --eval-seed-base 1000 --episodes 50 --out-dir results_smoke
 
 smoke test 2:
-  - smoke_validate_before_big_train.py
-   > python smoke_validate_before_big_train.py --seed 0 --steps 50
 
+- smoke_validate_before_big_train.py
 
-
+> python smoke_validate_before_big_train.py --seed 0 --steps 50
 
 ## v4.2:
 
@@ -225,9 +229,10 @@ smoke test 2:
 
 .\run_eval_grid.ps1 -EvalSeedBase 1000 -Episodes 200 -OutDir results
 
-
 ## v5.0:
+
 Como rodar PIRL + safety-filter:
+
 ```
 python train_rl.py \
   --control direct \
@@ -238,25 +243,30 @@ python train_rl.py \
   --seed 0
 
 ```
+
 ```
 python train_rl.py --control direct --use-pi-reward --pi-metric power --alpha-pi 2e-5 --safety-filter proj_box_jointlimit --dtau-max 2.0 --q-margin 0.15 --task-reward exp --exp-k 10 --tau-max 20 --max-steps 200 --steps 300000 --seed 0
 
 ```
 
 E o eval (vai ler do manifest.json, então não precisa repetir nada):
+
 ```
 python eval_rl.py --exp-id <EXP_ID> --train-seed 0 --eval-seed-base 1000 --episodes 200 --out-dir results
 ```
 
 ## v5.1:
+
 4 arquis da taxonomia:
 
 train:
+
 ```
-.\run_train_taxonomy.ps1 -ExpPrefix A0p -TaskReward exp -ExpK 10 -PiMetric power -AlphaPi 0.00002
-```
-eval:
-```
-.\run_eval_taxonomy.ps1 -ExpPrefix A0p -PiMetric power -AlphaPi 0.00002
+.\run_train_taxonomy.ps1 -ExpPrefix V5 -TaskReward exp -ExpK 3 -PiMetric power -AlphaPi 0.00002
 ```
 
+eval:
+
+```
+.\run_eval_taxonomy.ps1 -ExpPrefix V5 -PiMetric power -AlphaPi 0.00002
+```

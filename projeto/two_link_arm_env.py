@@ -68,6 +68,7 @@ class TwoLinkArmEnv(gym.Env):
         kp=10.0,
         kd=1.0,
         elbow="auto",  # "auto", "up", "down"
+        tau_res_max=8.0,  # por exemplo, 40% de tau_max=20
     ):
         super().__init__()
 
@@ -126,6 +127,7 @@ class TwoLinkArmEnv(gym.Env):
         self.kp = float(kp)
         self.kd = float(kd)
         self.elbow = elbow
+        self.tau_res_max = float(tau_res_max)
 
         # PyBullet init
         self.physicsClient = p.connect(p.GUI if self.render_mode else p.DIRECT)
@@ -141,15 +143,25 @@ class TwoLinkArmEnv(gym.Env):
         # Spaces
         # obs: [theta1, theta2, target_x, target_y]
         self.observation_space = spaces.Box(
-            low=np.array([-np.pi, -np.pi, -1.5, -1.5], dtype=np.float32),
-            high=np.array([np.pi, np.pi, 1.5, 1.5], dtype=np.float32),
+            low=np.array(
+                [-np.pi, -np.pi, -50.0, -50.0, -1.5, -1.5, -np.pi, -np.pi],
+                dtype=np.float32,
+            ),
+            high=np.array(
+                [np.pi, np.pi, 50.0, 50.0, 1.5, 1.5, np.pi, np.pi], dtype=np.float32
+            ),
             dtype=np.float32,
         )
 
         # action sempre 2D: no direct = tau; no residual = tau_res (mas ainda em N·m)
+        if self.control == "residual":
+            amax = self.tau_res_max
+        else:
+            amax = self.tau_max
+
         self.action_space = spaces.Box(
-            low=np.array([-self.tau_max, -self.tau_max], dtype=np.float32),
-            high=np.array([self.tau_max, self.tau_max], dtype=np.float32),
+            low=np.array([-amax, -amax], dtype=np.float32),
+            high=np.array([amax, amax], dtype=np.float32),
             dtype=np.float32,
         )
 
@@ -226,7 +238,10 @@ class TwoLinkArmEnv(gym.Env):
         action = np.asarray(action, dtype=np.float32).reshape(
             2,
         )
-        action = np.clip(action, -self.tau_max, self.tau_max)
+        if self.control == "residual":
+            action = np.clip(action, -self.tau_res_max, self.tau_res_max)
+        else:
+            action = np.clip(action, -self.tau_max, self.tau_max)
 
         # compute raw torque command
         if self.control == "direct":
@@ -377,6 +392,14 @@ class TwoLinkArmEnv(gym.Env):
             "tau_nom2": float(tau_nom[1]) if np.isfinite(tau_nom[1]) else np.nan,
             "tau_res1": float(tau_res[0]) if np.isfinite(tau_res[0]) else np.nan,
             "tau_res2": float(tau_res[1]) if np.isfinite(tau_res[1]) else np.nan,
+            "tau_raw_norm": float(np.linalg.norm(tau_raw)),
+            "tau_cmd_norm": float(np.linalg.norm(tau_cmd)),
+            "tau_nom_norm": (
+                float(np.linalg.norm(tau_nom)) if np.isfinite(tau_nom[0]) else np.nan
+            ),
+            "tau_res_norm": (
+                float(np.linalg.norm(tau_res)) if np.isfinite(tau_res[0]) else np.nan
+            ),
             # reward components
             "r_dist": float(r_dist),
             "r_prog": float(r_prog),
@@ -440,8 +463,12 @@ class TwoLinkArmEnv(gym.Env):
             [
                 float(self.theta1),
                 float(self.theta2),
+                float(self.qdot1),
+                float(self.qdot2),
                 float(self.target_pos[0]),
                 float(self.target_pos[1]),
+                float(self.q_des[0]),
+                float(self.q_des[1]),
             ],
             dtype=np.float32,
         )

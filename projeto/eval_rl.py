@@ -1,4 +1,4 @@
-# eval_rl.py (proposta completa + A3)
+# eval_rl.py
 import os
 import json
 import csv
