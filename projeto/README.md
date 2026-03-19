@@ -71,3 +71,15 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 3. Se trepidar: reduza a escala de ação (ex.: ±0.05) e aumente max_episode_steps para 300 (apenas teste).
 
 4. Se quiser “apimentar” o PIRL sem esforço: adicione um termo de suavidade (ex.: beta * (|Δθ1| + |Δθ2|)).
+
+python train_rl.py --mode pure --seed 0 --steps 300000
+python train_rl.py --mode pure --seed 1 --steps 300000
+python train_rl.py --mode pure --seed 2 --steps 300000
+python train_rl.py --mode pure --seed 3 --steps 300000
+python train_rl.py --mode pure --seed 4 --steps 300000
+
+python train_rl.py --mode pirl --seed 0 --steps 300000
+python train_rl.py --mode pirl --seed 1 --steps 300000
+python train_rl.py --mode pirl --seed 2 --steps 300000
+python train_rl.py --mode pirl --seed 3 --steps 300000
+python train_rl.py --mode pirl --seed 4 --steps 300000

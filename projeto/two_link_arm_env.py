@@ -27,6 +27,8 @@ class TwoLinkArmEnv(gym.Env):
 
         self.offset_local = [self.l2, 0, 0]
 
+        self.success_threshold = 0.05
+
         # Observação: [theta1, theta2, target_x, target_y]
         self.observation_space = spaces.Box(
             low=np.array([-np.pi, -np.pi, -1.5, -1.5]),
@@ -36,11 +38,14 @@ class TwoLinkArmEnv(gym.Env):
 
         # Ações: variação nos ângulos das juntas
         self.action_space = spaces.Box(
-            low=np.array([-0.1, -0.1]), high=np.array([0.1, 0.1]), dtype=np.float32
+            low=np.array([-0.1, -0.1]),
+            high=np.array([0.1, 0.1]),
+            dtype=np.float32,
         )
 
         self.target_pos = None
         self.state = None
+        self.target_id = None
         self.reset()
 
     def reset(self):
@@ -52,7 +57,7 @@ class TwoLinkArmEnv(gym.Env):
         self._apply_angles(self.theta1, self.theta2)
         p.stepSimulation()
 
-        self._create_target_visual()  # ⬅️ Adiciona a bolinha vermelha visível no alvo
+        self._create_target_visual()
 
         obs = self._get_obs()
         return obs
@@ -69,33 +74,33 @@ class TwoLinkArmEnv(gym.Env):
             np.array(end_effector_pos[:2]) - np.array(self.target_pos)
         )
 
-        # ====== REWARD ======
-        # RL puro: -distância + penalidade leve de ação
-
         if self.reward_mode == "pure":
             lam_a = 0.001
             reward = -dist - lam_a * float(np.linalg.norm(action))
-
-        # PIRL: -distância + penalidade de ação + penalidade de torque (informado por física)
         else:  # "pirl"
             lam_a = 0.001
-            alpha_tau = 0.0005  # ajuste fino depois
+            alpha_tau = 0.0005
             js = p.getJointStates(self.robot, [0, 1])
-            # appliedMotorTorque é o quarto elemento do tuple
             tau1 = abs(js[0][3])
             tau2 = abs(js[1][3])
             tau_sum = tau1 + tau2
             reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_sum
 
-        done = dist < 0.05
+        done = dist < self.success_threshold
 
         obs = self._get_obs()
-        info = {"distance": dist}
+
+        # IMPORTANTE: esses campos serão capturados pelo Monitor
+        info = {
+            "distance": float(dist),
+            "final_distance": float(dist),
+            "is_success": float(dist < self.success_threshold),
+        }
+
         return obs, reward, done, info
 
     def _create_target_visual(self):
-        # Apaga alvo anterior (se houver)
-        if hasattr(self, "target_id"):
+        if self.target_id is not None:
             p.removeBody(self.target_id)
 
         radius = 0.03
@@ -123,7 +128,6 @@ class TwoLinkArmEnv(gym.Env):
 
     def _get_end_effector_pos(self):
         ls = p.getLinkState(self.robot, self.link2, computeForwardKinematics=True)
-        # use 4/5 se disponíveis; caso contrário, caia em 0/1
         link_pos = ls[4] if len(ls) > 4 else ls[0]
         link_ornt = ls[5] if len(ls) > 5 else ls[1]
         ee_pos, _ = p.multiplyTransforms(
