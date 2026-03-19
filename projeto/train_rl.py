@@ -32,6 +32,6 @@ model = PPO(
 model.learn(total_timesteps=args.steps)
 
 os.makedirs(f"runs_{args.mode}", exist_ok=True)
-model.save(f"runs_{args.mode}/ppo_model.zip")
+model.save(f"runs_{args.mode}/ppo_model_{args.seed}.zip")
 env.close()
 print(f"[OK] Treino {args.mode} finalizado.")

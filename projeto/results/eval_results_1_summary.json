@@ -1,0 +1,24 @@
+[
+  {
+    "mode": "pure",
+    "episodes": 100,
+    "success_rate": 0.43,
+    "mean_final_dist": 0.121766532046513,
+    "std_final_dist": 0.10217081285254558,
+    "mean_return": -28.943259547336112,
+    "std_return": 23.102971634938992,
+    "mean_ep_len": 127.1,
+    "std_ep_len": 84.28267912210671
+  },
+  {
+    "mode": "pirl",
+    "episodes": 100,
+    "success_rate": 0.42,
+    "mean_final_dist": 0.10264717157024571,
+    "std_final_dist": 0.07114190363967109,
+    "mean_return": -27.049090072269358,
+    "std_return": 19.224449588577393,
+    "mean_ep_len": 128.14,
+    "std_ep_len": 85.077496437072
+  }
+]

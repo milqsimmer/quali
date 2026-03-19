@@ -13,9 +13,11 @@ def evaluate(
     render: bool = False,
     max_steps: int = 200,
     print_episodes: bool = False,
+    seed: int = 0,
 ):
     """Avalia um modelo salvo para um determinado modo ('pure' ou 'pirl')."""
-    model_path = f"runs_{mode}/ppo_model.zip"
+    model_path = f"runs_{mode}/ppo_model_{seed}.zip"
+    print(f"Carregando modelo do caminho: {model_path}")
     if not os.path.isfile(model_path):
         raise FileNotFoundError(f"Modelo não encontrado: {model_path}")
 
@@ -137,6 +139,7 @@ if __name__ == "__main__":
         default="both",
         help="Qual modelo avaliar.",
     )
+    ap.add_argument("--seed", type=int, default=0, help="Seed para reproducibilidade.")
     ap.add_argument("--episodes", type=int, default=100, help="Episódios por modo.")
     ap.add_argument(
         "--render", action="store_true", help="Renderiza durante avaliação."
@@ -148,7 +151,7 @@ if __name__ == "__main__":
         help="Limite de passos por episódio (TimeLimit).",
     )
     ap.add_argument(
-        "--out", default="results/eval_results.csv", help="Caminho do CSV por-episódio."
+        "--out", default="results/eval_results", help="Caminho do CSV por-episódio."
     )
     ap.add_argument(
         "--print-episodes",
@@ -169,12 +172,13 @@ if __name__ == "__main__":
             render=args.render,
             max_steps=args.max_steps,
             print_episodes=args.print_episodes,
+            seed=args.seed,
         )
         summaries.append(summary)
         all_rows.extend(rows)
 
     print_summary_table(summaries)
-    csv_path, sum_path = save_csv(args.out, all_rows, summaries)
+    csv_path, sum_path = save_csv(f"{args.out}_{args.seed}.csv", all_rows, summaries)
     print(
         f"\nArquivos salvos:\n- CSV por-episódio: {csv_path}\n- Resumo JSON: {sum_path}"
     )
