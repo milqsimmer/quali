@@ -5,10 +5,6 @@ import pybullet as p
 import pybullet_data
 import time
 
-""" 
-Se quiser um PIRL um pouquinho mais “rico” ainda sem mexer na dinâmica, pode somar um termo de variação de ângulo (suavidade): beta * (|Δθ1| + |Δθ2|). Mas o termo de torque aplicado já coloca “física” no objetivo com custo quase zero de implementação.
-"""
-
 
 class TwoLinkArmEnv(gym.Env):
     def __init__(self, render=False, reward_mode="pure"):
