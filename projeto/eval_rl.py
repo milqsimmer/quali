@@ -45,7 +45,6 @@ def evaluate(
             ep_len += 1
             last_info = info
 
-            # acumula esforço de torque L1 no episódio
             tau_l1 = float(info.get("tau_l1", np.nan))
             if not np.isnan(tau_l1):
                 ep_tau_sum += tau_l1
@@ -58,7 +57,7 @@ def evaluate(
         if final_dist < 0.05:
             succ += 1
 
-        # esforço médio em torque do episódio: E_i = (1/T_i) * sum_t ||tau_t||_1
+        # esforço médio em torque: E_i = (1/T_i) * sum_t ||tau_t||_1
         if ep_len > 0:
             E_i = ep_tau_sum / ep_len
         else:
@@ -69,16 +68,23 @@ def evaluate(
         lens.append(ep_len)
         efforts.append(E_i)
 
+        if print_episodes:
+            print(
+                f"[{mode}] ep {ep+1}/{episodes} - "
+                f"dist_final={final_dist:.4f}, ret={ep_ret:.2f}, "
+                f"len={ep_len}, E_i={E_i:.4f}"
+            )
+
         ep_rows.append(
             {
                 "mode": mode,
                 "episode": ep + 1,
                 "success": int(final_dist < 0.05),
-                "final_dist": final_dist,
+                "final_distance": final_dist,
                 "return": ep_ret,
                 "length": ep_len,
                 "mean_tau_l1": E_i,  # esforço médio em torque
-                "tau_l1_sum": ep_tau_sum,  # soma de ||tau_t||_1 no episódio (opcional)
+                "tau_l1_sum": ep_tau_sum,  # soma de ||tau_t||_1 no episódio
             }
         )
 
@@ -102,9 +108,20 @@ def evaluate(
 
 
 def save_csv(csv_path: str, rows: list, summaries: list):
-    os.makedirs(os.path.dirname(csv_path), exist_ok=True)
+    dir_name = os.path.dirname(csv_path)
+    if dir_name:  # só cria diretório se tiver pasta no caminho
+        os.makedirs(dir_name, exist_ok=True)
     # salva por-episódio
-    fieldnames = ["mode", "episode", "success", "final_distance", "return", "length"]
+    fieldnames = [
+        "mode",
+        "episode",
+        "success",
+        "final_distance",
+        "return",
+        "length",
+        "mean_tau_l1",
+        "tau_l1_sum",
+    ]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
         w.writeheader()

@@ -20,8 +20,8 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # ========= CONFIGURAÇÕES GERAIS =========
-CSV_PATH = r"eval_results_4.csv"
-OUT_DIR = r"figs_resultados_4"
+CSV_PATH = r"results_torque.csv"
+OUT_DIR = r"figs_resultados"
 TABELAS_DIR = r"tabelas"
 
 # ========= LABELS =========
@@ -200,3 +200,40 @@ fig5_path = os.path.join(OUT_DIR, "fig5_hist_dist_final_lado_a_lado.pdf")
 plt.savefig(fig5_path, format="pdf", bbox_inches="tight")
 
 plt.close(fig5)
+
+# ========= FIGURA 66: Boxplot Torques =========
+
+# Verifica rapidamente se as colunas esperadas existem
+required_cols = {"mode", "mean_tau_l1"}
+missing = required_cols - set(df.columns)
+if missing:
+    raise ValueError(
+        f"Colunas faltantes no CSV: {missing}. Colunas disponíveis: {df.columns.tolist()}"
+    )
+
+# === 2. Separar dados por condição ===
+modes = ["pure", "pirl"]
+labels = ["RL puro", "PIRL"]
+
+data = []
+for m in modes:
+    sub = df[df["mode"] == m]["mean_tau_l1"].values
+    if len(sub) == 0:
+        raise ValueError(f"Nenhum dado encontrado para mode='{m}'. Verifique o CSV.")
+    data.append(sub)
+
+# === 3. Criar o boxplot ===
+fig, ax = plt.subplots()
+
+ax.boxplot(data, tick_labels=labels)
+
+ax.set_ylabel(r"Esforço médio em torque $E_i$ ($\|\tau\|_1$ médio por episódio)")
+# ax.set_title("Distribuição do esforço médio em torque por condição")
+
+fig.tight_layout()
+
+# === 4. Salvar figura ===
+fig6_path = os.path.join(OUT_DIR, "boxplot_torque_effort.pdf")
+plt.savefig(fig6_path, format="pdf", bbox_inches="tight")
+plt.close(fig)
+# ========= FIM =========
