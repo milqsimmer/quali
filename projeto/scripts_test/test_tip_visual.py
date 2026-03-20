@@ -1,4 +1,15 @@
 # test_tip_visual.py  (gym 0.21)
+
+"""
+Script de debug visual do ambiente TwoLinkArmEnv.
+Gera ações aleatórias apenas para “passear” com o braço enquanto:
+- desenha a posição da ponta (tip) e do alvo (target) na GUI do PyBullet,
+- plota uma linha da ponta até o alvo,
+- imprime no terminal a distância entre ponta e alvo.
+Não faz controle nem aprendizado por reforço; serve só para inspecionar
+se a posição da ponta e do alvo estão coerentes no ambiente Gym/PyBullet.
+"""
+
 import time, numpy as np, pybullet as p
 from two_link_arm_env import TwoLinkArmEnv
 

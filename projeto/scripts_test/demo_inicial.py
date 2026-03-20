@@ -1,8 +1,19 @@
+"""
+Script de demonstração inicial do braço robótico 2-DOF.
+
+Usa PyBullet e uma solução analítica de cinemática inversa para testar o URDF
+
+e a simulação, sem envolver o ambiente Gym nem o pipeline de aprendizado por
+reforço (PPO).
+
+Mantido como ferramenta de debug visual rápido do modelo físico e do setup
+do PyBullet.
+"""
+
 import pybullet as p
 import pybullet_data
 import numpy as np
 import time
-import numpy as np
 
 
 def compute_angles(x, y, l1=0.5, l2=0.5):
@@ -42,7 +53,10 @@ joint2 = 1
 link2 = 1  # o segundo link (cotovelo → ponta)
 
 step = 0
-while True:
+max_steps = 200
+success_threshold = 0.01
+
+while step < max_steps:
     # Ângulos oscilando
     # angle1 = np.sin(step * 0.01) * 1.5 # trajetoria oscilando mas nao tenta chegar no target, ainda nao tem objetivo
     # angle2 = np.cos(step * 0.01) * 1.5
@@ -51,8 +65,12 @@ while True:
     target_y = 0.2
 
     angles = compute_angles(target_x, target_y)
-    if angles:
-        theta1, theta2 = angles
+    if angles is None:
+        print("Alvo fora do alcance para a posição alvo atual; pulando este passo.")
+        step += 1
+        continue
+
+    theta1, theta2 = angles
 
     # Controla as juntas
     p.setJointMotorControl2(
@@ -70,8 +88,8 @@ while True:
     link_pos = link_state[0]
     link_orient = link_state[1]
 
-    # Corrige a posição da ponta do braço: offset de 0.25m no eixo X local
-    offset_local = [0.25, 0, 0]
+    # Corrige a posição da ponta do braço: offset de 0.5m no eixo X local
+    offset_local = [0.5, 0, 0]
     end_effector_pos, _ = p.multiplyTransforms(
         link_pos, link_orient, offset_local, [0, 0, 0, 1]
     )
@@ -80,12 +98,23 @@ while True:
     dist = np.linalg.norm(np.array(end_effector_pos) - np.array(target_pos))
     reward = -dist
 
+    if dist < success_threshold:
+        print(
+            f"Alvo alcançado com dist = {dist:.4f} em {step} steps; encerrando simulação."
+        )
+        break
+
     # Log
-    # print(f"Step {step}")
-    # print(f"  Ângulo1: {angle1:.2f}, Ângulo2: {angle2:.2f}")
-    # print(f"  Posição da ponta: {np.round(end_effector_pos, 3)}")
-    # print(f"  Distância até alvo: {dist:.4f}")
-    # print(f"  Recompensa: {reward:.4f}")
-    # print("-" * 40)
+    js1 = p.getJointState(robot, joint1)
+    js2 = p.getJointState(robot, joint2)
+    angle1 = js1[0]
+    angle2 = js2[0]
+
+    print(f"Step {step}")
+    print(f"  Ângulo1: {angle1:.2f}, Ângulo2: {angle2:.2f}")
+    print(f"  Posição da ponta: {np.round(end_effector_pos, 3)}")
+    print(f"  Distância até alvo: {dist:.4f}")
+    print(f"  Recompensa: {reward:.4f}")
+    print("-" * 40)
 
     step += 1
