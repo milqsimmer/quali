@@ -28,7 +28,7 @@ def evaluate(
 
     ep_rows = []
     succ = 0
-    dists, rets, lens = [], [], []
+    dists, lens = [], []
     efforts = []  # lista de E_i por episódio
 
     for ep in range(episodes):
@@ -64,7 +64,6 @@ def evaluate(
             E_i = np.nan
 
         dists.append(final_dist)
-        rets.append(ep_ret)
         lens.append(ep_len)
         efforts.append(E_i)
 
@@ -96,8 +95,6 @@ def evaluate(
         "success_rate": succ / episodes,
         "mean_final_dist": float(np.nanmean(dists)),
         "std_final_dist": float(np.nanstd(dists)),
-        "mean_return": float(np.mean(rets)),
-        "std_return": float(np.std(rets)),
         "mean_ep_len": float(np.mean(lens)),
         "std_ep_len": float(np.std(lens)),
         "mean_tau_effort": float(np.nanmean(efforts)),
@@ -145,7 +142,6 @@ def print_summary_table(summaries: list):
         "episodes",
         "success_rate",
         "mean_final_dist",
-        "mean_return",
         "mean_ep_len",
         "mean_tau_effort",
     ]
@@ -159,7 +155,6 @@ def print_summary_table(summaries: list):
             s["episodes"],
             fmt(s["success_rate"]),
             fmt(s["mean_final_dist"]),
-            fmt(s["mean_return"]),
             fmt(s["mean_ep_len"]),
             fmt(s.get("mean_tau_effort", float("nan"))),
         ]

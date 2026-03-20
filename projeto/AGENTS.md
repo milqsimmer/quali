@@ -33,11 +33,11 @@ and PPO training/evaluation scripts.
 
 There is no traditional build step; this is a pure Python project.
 
-### 2.1. Running the main simulation
+### 2.1. Visual demos / basic simulation
 
-- Start the basic 2-link arm simulation (PyBullet GUI):
+- Simple IK demo in PyBullet (no Gym/RL), useful to quickly check the URDF and physics setup:
   ```bash
-  python main.py
+  python scripts_test/demo_inicial.py
   ```
 
 ### 2.2. Training RL agents
@@ -106,11 +106,11 @@ meant to be run directly.
   ```
 - Environment sanity / kinematics check (inverse kinematics to random targets):
   ```bash
-  python test_env.py
+  python scripts_test/test_env.py
   ```
-- Visual tip/target debugging script (PyBullet overlays):
+- Visual tip/target debugging script (PyBullet overlays) using the Gym environment:
   ```bash
-  python test_tip_visual.py
+  python scripts_test/test_tip_visual.py
   ```
 
 Running a single test
@@ -119,14 +119,14 @@ Running a single test
   - "Single test" == "single script" in this repo.
   - Example:
     ```bash
-    python test_env.py
+    python scripts_test/test_env.py
     ```
 - If you introduce pytest later:
   - Place tests in test_*.py files.
   - Use:
     ```bash
     pytest -q
-    pytest test_env.py::TestClassName::test_case_name
+    pytest scripts_test/test_env.py::TestClassName::test_case_name
     ```
   - Update this document and README.md accordingly.
 
@@ -195,7 +195,7 @@ Running a single test
     native generics on Python 3.9+.
 - Keep function signatures stable for:
   - TwoLinkArmEnv methods.
-  - CLI entrypoints: train_rl.py, eval_rl.py, main.py, test_*.py.
+  - CLI entrypoints: train_rl.py, eval_rl.py, test_*.py.
 
 ---
 
