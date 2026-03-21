@@ -14,6 +14,18 @@ def set_global_seed(seed: int):
     np.random.seed(seed)
 
 
+def get_run_dir(mode: str, seed: int) -> str:
+    return os.path.join(f"runs_{mode}", f"seed_{seed}")
+
+
+def get_model_path(mode: str, seed: int) -> str:
+    return os.path.join(get_run_dir(mode, seed), f"ppo_model_{seed}.zip")
+
+
+def get_monitor_path(mode: str, seed: int) -> str:
+    return os.path.join(get_run_dir(mode, seed), "monitor.csv")
+
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--mode", choices=["pure", "pirl"], default="pure")
 parser.add_argument("--steps", type=int, default=300_000)
@@ -22,11 +34,11 @@ args = parser.parse_args()
 
 set_global_seed(args.seed)
 
-run_dir = os.path.join(f"runs_{args.mode}", f"seed_{args.seed}")
+run_dir = get_run_dir(args.mode, args.seed)
 os.makedirs(run_dir, exist_ok=True)
 
-monitor_path = os.path.join(run_dir, "monitor.csv")
-model_path = os.path.join(run_dir, f"ppo_model_{args.seed}.zip")
+monitor_path = get_monitor_path(args.mode, args.seed)
+model_path = get_model_path(args.mode, args.seed)
 
 env = TwoLinkArmEnv(render=False, reward_mode=args.mode)
 env = TimeLimit(env, max_episode_steps=200)

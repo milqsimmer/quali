@@ -7,6 +7,14 @@ from stable_baselines3 import PPO
 from two_link_arm_env import TwoLinkArmEnv
 
 
+def get_run_dir(mode: str, seed: int) -> str:
+    return os.path.join(f"runs_{mode}", f"seed_{seed}")
+
+
+def get_model_path(mode: str, seed: int) -> str:
+    return os.path.join(get_run_dir(mode, seed), f"ppo_model_{seed}.zip")
+
+
 def evaluate(
     mode: str,
     episodes: int = 100,
@@ -16,7 +24,7 @@ def evaluate(
     seed: int = 0,
 ):
     """Avalia um modelo salvo para um determinado modo ('pure' ou 'pirl')."""
-    model_path = f"runs_{mode}/ppo_model_{seed}.zip"
+    model_path = get_model_path(mode, seed)
     print(f"Carregando modelo do caminho: {model_path}")
     if not os.path.isfile(model_path):
         raise FileNotFoundError(f"Modelo não encontrado: {model_path}")
@@ -77,6 +85,7 @@ def evaluate(
         ep_rows.append(
             {
                 "mode": mode,
+                "seed": seed,
                 "episode": ep + 1,
                 "success": int(final_dist < 0.05),
                 "final_distance": final_dist,
@@ -91,6 +100,7 @@ def evaluate(
 
     summary = {
         "mode": mode,
+        "seed": seed,
         "episodes": episodes,
         "success_rate": succ / episodes,
         "mean_final_dist": float(np.nanmean(dists)),
@@ -111,6 +121,7 @@ def save_csv(csv_path: str, rows: list, summaries: list):
     # salva por-episódio
     fieldnames = [
         "mode",
+        "seed",
         "episode",
         "success",
         "final_distance",
@@ -139,6 +150,7 @@ def print_summary_table(summaries: list):
 
     headers = [
         "mode",
+        "seed",
         "episodes",
         "success_rate",
         "mean_final_dist",
@@ -152,6 +164,7 @@ def print_summary_table(summaries: list):
     for s in summaries:
         row = [
             s["mode"],
+            s["seed"],
             s["episodes"],
             fmt(s["success_rate"]),
             fmt(s["mean_final_dist"]),
@@ -209,6 +222,4 @@ if __name__ == "__main__":
 
     print_summary_table(summaries)
     csv_path, sum_path = save_csv(f"{args.out}_{args.seed}.csv", all_rows, summaries)
-    print(
-        f"\nArquivos salvos:\n- CSV por-episódio: {csv_path}\n- Resumo JSON: {sum_path}"
-    )
+    print(f"Arquivos salvos:- CSV por-episódio: {csv_path}- Resumo JSON: {sum_path}")
