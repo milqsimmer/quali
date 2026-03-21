@@ -82,12 +82,14 @@ recompensas para RL.
    - Velocidades angulares: `omega1 = js[0][1]`, `omega2 = js[1][1]`.
    - Potencia instantanea aproximada: `power_t = |tau1 * omega1| + |tau2 * omega2|`.
 7. Recompensa (veja Secao 5 para teoria):
-   - Define `lam_a = 0.001` (penalidade leve de acao, norma 2 do vetor de incrementos).
+   - Define `lambda_a` (argumento do construtor; padrao `0.001`) como o peso da penalidade de
+     acao, norma 2 do vetor de incrementos.
    - Modo `"pure"`:
-     - `reward_t = -dist_t - lam_a * ||action_t||_2`.
+     - `reward_t = -dist_t - lambda_a * ||action_t||_2`.
    - Modo `"pirl"`:
-     - Define `alpha_tau = 0.0005`.
-     - `reward_t = -dist_t - lam_a * ||action_t||_2 - alpha_tau * tau_sum`.
+     - Define `alpha_tau` (argumento do construtor; padrao `0.0005`) como peso da penalidade
+       de torque.
+     - `reward_t = -dist_t - lambda_a * ||action_t||_2 - alpha_tau * tau_sum`.
 8. Termino do episodio:
    - `done = (dist_t < success_threshold)`.
    - Nao ha limite de passos aqui; o limite de 200 passos e imposto por `TimeLimit` nos
@@ -116,13 +118,19 @@ recompensa.
   - `--mode`: `"pure"` ou `"pirl"` (define a funcao de recompensa do ambiente).
   - `--steps`: numero total de passos de treino (padrao `300_000`).
   - `--seed`: semente para reproducibilidade.
+  - `--lambda-a`: peso da penalidade de acao `lambda_a` (padrao `0.001`).
+  - `--alpha-tau`: peso da penalidade de torque `alpha_tau` (padrao `0.0005`, so usado no
+    modo `"pirl"`).
+  - `--run-tag`: sufixo opcional para distinguir execucoes com a mesma seed (gera pastas
+    `seed_<seed>_<run-tag>`).
 - Reproducibilidade:
   - `set_global_seed(seed)` fixa `random` e `numpy`.
 
 ### 3.2 Diretorios e logs
 
 - Diretorio da execucao:
-  - `run_dir = "runs_<mode>/seed_<seed>"`.
+  - Sem `run-tag`: `runs_<mode>/seed_<seed>`.
+  - Com `run-tag`: `runs_<mode>/seed_<seed>_<run-tag>`.
 - Arquivos gerados:
   - `monitor.csv`: log por episodio (via `Monitor`).
   - `ppo_model_<seed>.zip`: modelo PPO treinado (weights e parametros).
@@ -130,7 +138,8 @@ recompensa.
 ### 3.3 Ambiente e wrappers
 
 - Ambiente base:
-  - `env = TwoLinkArmEnv(render=False, reward_mode=args.mode)`.
+  - `env = TwoLinkArmEnv(render=False, reward_mode=args.mode, lambda_a=args.lambda_a,
+    alpha_tau=args.alpha_tau)`.
 - Limite de passos por episodio:
   - `env = TimeLimit(env, max_episode_steps=200)`.
 - Monitoramento de episodios:
@@ -160,12 +169,15 @@ e a definicao de `r_t` no ambiente.
 ## 4) Avaliacao e comparacao: `eval_rl.py`
 
 `eval_rl.py` carrega modelos PPO treinados (pure ou pirl), roda varios episodios e gera
-estatisticas detalhadas, inclusive sobre o esforco em torque.
+estatisticas detalhadas, inclusive sobre o esforco em torque e a energia aproximada por
+episodio.
 
 ### 4.1 Funcao `evaluate`
 
 - Carregamento do modelo:
-  - `model_path = f"runs_{mode}/ppo_model_{seed}.zip"`.
+  - `model_path` e construido com `get_model_path(mode, seed, run_tag)` e aponta para:
+    - `runs_<mode>/seed_<seed>/ppo_model_<seed>.zip` (sem tag) ou
+    - `runs_<mode>/seed_<seed>_<run-tag>/ppo_model_<seed>.zip` (com tag).
   - Cria `env = TwoLinkArmEnv(render=render, reward_mode=mode)`.
   - Aplica `TimeLimit(env, max_episode_steps=max_steps)`.
   - `model = PPO.load(model_path, env=env)`.
@@ -178,6 +190,7 @@ estatisticas detalhadas, inclusive sobre o esforco em torque.
       - `obs, reward, done, info = env.step(action)`.
       - Acumula retorno `ep_ret` e comprimento `ep_len`.
       - Soma de esforcos de torque: `ep_tau_sum += tau_sum` (lido de `info`).
+      - Energia: `ep_energy += power_t * dt` (usando `power` vindo do `info`).
   - Ao final:
     - `final_dist = last_info["distance"]`.
     - `success = 1` se `final_dist < 0.05`, senao `0`.
@@ -189,18 +202,20 @@ estatisticas detalhadas, inclusive sobre o esforco em torque.
   - `mean_final_dist` e `std_final_dist`.
   - `mean_ep_len` e `std_ep_len`.
   - `mean_tau_effort`, `std_tau_effort`, `median_tau_effort` (metricas do esforco medio de torque).
+  - `mean_energy` e `std_energy` (energia aproximada por episodio).
 
 ### 4.2 Salvando resultados
 
-  - `save_csv(csv_path, rows, summaries)`:
+- `save_csv(csv_path, rows, summaries)`:
   - Escreve um CSV por episodio:
-    - colunas: `mode`, `episode`, `success`, `final_distance`, `return`, `length`,
-      `mean_tau_sum`, `tau_sum_total`.
+    - colunas: `mode`, `seed`, `episode`, `success`, `final_distance`, `return`, `length`,
+      `mean_tau_sum`, `tau_sum_total`, `energy`.
   - Escreve um JSON de resumo ao lado do CSV (mesmo prefixo, sufixo `_summary.json`).
 
 - `print_summary_table(summaries)`:
-  - Imprime uma tabela alinhada com colunas como `mode`, `success_rate`, `mean_final_dist`,
-    `mean_ep_len`, `mean_tau_effort`, etc.
+  - Imprime uma tabela alinhada com colunas como
+    `mode`, `seed`, `episodes`, `success_rate`, `mean_final_dist`, `mean_ep_len`,
+    `mean_tau_effort`, `mean_energy`.
 
 ### 4.3 Execucao via linha de comando
 
@@ -212,6 +227,7 @@ estatisticas detalhadas, inclusive sobre o esforco em torque.
   - `--max-steps`: limite de passos (TimeLimit).
   - `--out`: prefixo do CSV de saida.
   - `--print-episodes`: imprime metrica por episodio.
+  - `--run-tag`: sufixo opcional para casar com o `--run-tag` usado no treino.
 
 Se `mode="both"`, o script avalia sequencialmente os dois modelos (`pure` e `pirl`) e junta
 os resultados no mesmo CSV e JSON, facilitando a comparacao.
@@ -318,3 +334,34 @@ Em geral, espera-se que:
 
 Esse e o nucleo da trade-off que o PI-Rewards busca explicitar: otimizar nao apenas o sucesso
 da tarefa, mas tambem criterios fisicos relevantes para robotica (torque, energia, conforto).
+
+---
+
+### 5.5 Decisoes de desenho do experimento
+
+Algumas decisoes especificas foram tomadas para deixar o experimento conceitualmente mais
+limpo e as comparacoes entre modos mais honestas:
+
+- Separar objetivos de treino e metricas de avaliacao:
+  - `mean_return` **nao** e usado para comparar `pure` vs `pirl`, pois cada modo tem uma
+    funcao de recompensa diferente (o termo de torque aparece so em `pirl`).
+  - Em vez disso, a comparacao entre modos e feita com base em `success_rate`,
+    `mean_final_dist`, `mean_tau_effort` e `mean_energy`, que sao interpretaveis em termos
+    fisicos e identicos para ambos.
+
+- Medir energia de forma fisicamente coerente:
+  - A energia aproximada por episodio e definida como a integral discreta da potencia: soma de
+    `power_t * dt`, onde `power_t = |tau1_t * omega1_t| + |tau2_t * omega2_t|`.
+  - O passo de tempo `dt` nao e fixado "no chute": e lido de
+    `pybullet.getPhysicsEngineParameters()["fixedTimeStep"]`, garantindo que a escala de
+    energia respeita o configurado no motor fisico.
+
+- Parametrizar e explicitar os pesos de recompensa:
+  - Os pesos `lambda_a` (acao) e `alpha_tau` (torque) sao argumentos explicitos do
+    `TwoLinkArmEnv` e dos scripts de treino (`--lambda-a`, `--alpha-tau`).
+  - Isso facilita explorar diferentes configuracoes de PI-reward e registrar exatamente
+    quais valores foram usados em cada execucao (via `--run-tag` e a estrutura de pastas).
+
+Essas escolhas visam separar claramente o que e parte do objetivo de treino (recompensa) do que
+e parte da avaliacao final (metricas fisicas) e tornar os resultados mais comparaveis e
+reprodutiveis.

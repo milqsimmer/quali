@@ -23,9 +23,9 @@ def evaluate(
     max_steps: int = 200,
     print_episodes: bool = False,
     seed: int = 0,
+    run_tag: str = "",
 ):
     """Avalia um modelo salvo para um determinado modo ('pure' ou 'pirl')."""
-    run_tag = getattr(evaluate, "_run_tag", "")  # injetado via main
     model_path = get_model_path(mode, seed, run_tag)
     print(f"Carregando modelo do caminho: {model_path}")
     if not os.path.isfile(model_path):
@@ -175,6 +175,7 @@ def print_summary_table(summaries: list):
         "mean_final_dist",
         "mean_ep_len",
         "mean_tau_effort",
+        "mean_energy",
     ]
     widths = [max(len(h), 14) for h in headers]
     line = " | ".join(h.ljust(w) for h, w in zip(headers, widths))
@@ -189,6 +190,7 @@ def print_summary_table(summaries: list):
             fmt(s["mean_final_dist"]),
             fmt(s["mean_ep_len"]),
             fmt(s.get("mean_tau_effort", float("nan"))),
+            fmt(s.get("mean_energy", float("nan"))),
         ]
         print(" | ".join(str(c).ljust(w) for c, w in zip(row, widths)))
 
@@ -220,6 +222,12 @@ if __name__ == "__main__":
         action="store_true",
         help="Imprime métricas por episódio (só para o modo selecionado).",
     )
+    ap.add_argument(
+        "--run-tag",
+        type=str,
+        default="",
+        help="Sufixo opcional usado no diretório de treino (seed_X_<tag>).",
+    )
 
     args = ap.parse_args()
 
@@ -235,6 +243,7 @@ if __name__ == "__main__":
             max_steps=args.max_steps,
             print_episodes=args.print_episodes,
             seed=args.seed,
+            run_tag=args.run_tag,
         )
         summaries.append(summary)
         all_rows.extend(rows)
