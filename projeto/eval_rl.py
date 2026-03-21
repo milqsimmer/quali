@@ -7,12 +7,13 @@ from stable_baselines3 import PPO
 from two_link_arm_env import TwoLinkArmEnv
 
 
-def get_run_dir(mode: str, seed: int) -> str:
-    return os.path.join(f"runs_{mode}", f"seed_{seed}")
+def get_run_dir(mode: str, seed: int, run_tag: str = "") -> str:
+    suffix = f"_" + run_tag if run_tag else ""
+    return os.path.join(f"runs_{mode}", f"seed_{seed}{suffix}")
 
 
-def get_model_path(mode: str, seed: int) -> str:
-    return os.path.join(get_run_dir(mode, seed), f"ppo_model_{seed}.zip")
+def get_model_path(mode: str, seed: int, run_tag: str = "") -> str:
+    return os.path.join(get_run_dir(mode, seed, run_tag), f"ppo_model_{seed}.zip")
 
 
 def evaluate(
@@ -24,7 +25,8 @@ def evaluate(
     seed: int = 0,
 ):
     """Avalia um modelo salvo para um determinado modo ('pure' ou 'pirl')."""
-    model_path = get_model_path(mode, seed)
+    run_tag = getattr(evaluate, "_run_tag", "")  # injetado via main
+    model_path = get_model_path(mode, seed, run_tag)
     print(f"Carregando modelo do caminho: {model_path}")
     if not os.path.isfile(model_path):
         raise FileNotFoundError(f"Modelo não encontrado: {model_path}")
@@ -34,16 +36,24 @@ def evaluate(
     env = TimeLimit(env, max_episode_steps=max_steps)
     model = PPO.load(model_path, env=env)
 
+    # tenta descobrir o dt do ambiente base (TwoLinkArmEnv)
+    base_env = env
+    if hasattr(base_env, "env"):
+        base_env = base_env.env
+    dt = getattr(base_env, "dt", 1.0 / 240.0)
+
     ep_rows = []
     succ = 0
     dists, lens = [], []
     efforts = []  # lista de E_i por episódio
+    energies = []  # energia total aproximada por episódio
 
     for ep in range(episodes):
         obs = env.reset()
         done = False
         ep_ret, ep_len = 0.0, 0
         ep_tau_sum = 0.0  # soma_t ||tau_t||_1 no episódio
+        ep_energy = 0.0  # soma_t power_t * dt no episódio
         last_info = {}
 
         while not done:
@@ -53,9 +63,13 @@ def evaluate(
             ep_len += 1
             last_info = info
 
-            tau_l1 = float(info.get("tau_l1", np.nan))
-            if not np.isnan(tau_l1):
-                ep_tau_sum += tau_l1
+            tau_sum = float(info.get("tau_sum", np.nan))
+            if not np.isnan(tau_sum):
+                ep_tau_sum += tau_sum
+
+            power = float(info.get("power", np.nan))
+            if not np.isnan(power):
+                ep_energy += power * dt
 
             if render:
                 time.sleep(1 / 240.0)
@@ -74,6 +88,7 @@ def evaluate(
         dists.append(final_dist)
         lens.append(ep_len)
         efforts.append(E_i)
+        energies.append(ep_energy)
 
         if print_episodes:
             print(
@@ -91,8 +106,9 @@ def evaluate(
                 "final_distance": final_dist,
                 "return": ep_ret,
                 "length": ep_len,
-                "mean_tau_l1": E_i,  # esforço médio em torque
-                "tau_l1_sum": ep_tau_sum,  # soma de ||tau_t||_1 no episódio
+                "mean_tau_sum": E_i,  # esforço médio em torque
+                "tau_sum_total": ep_tau_sum,  # soma de ||tau_t||_1 no episódio
+                "energy": ep_energy,
             }
         )
 
@@ -110,6 +126,8 @@ def evaluate(
         "mean_tau_effort": float(np.nanmean(efforts)),
         "std_tau_effort": float(np.nanstd(efforts)),
         "median_tau_effort": float(np.nanmedian(efforts)),
+        "mean_energy": float(np.nanmean(energies)),
+        "std_energy": float(np.nanstd(energies)),
     }
     return summary, ep_rows
 
@@ -127,8 +145,9 @@ def save_csv(csv_path: str, rows: list, summaries: list):
         "final_distance",
         "return",
         "length",
-        "mean_tau_l1",
-        "tau_l1_sum",
+        "mean_tau_sum",
+        "tau_sum_total",
+        "energy",
     ]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)

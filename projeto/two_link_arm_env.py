@@ -7,14 +7,28 @@ import time
 
 
 class TwoLinkArmEnv(gym.Env):
-    def __init__(self, render=False, reward_mode="pure"):
+    def __init__(
+        self,
+        render: bool = False,
+        reward_mode: str = "pure",
+        lambda_a: float = 0.001,
+        alpha_tau: float = 0.0005,
+    ):
         super(TwoLinkArmEnv, self).__init__()
         self.reward_mode = reward_mode
+
+        # pesos da função de recompensa
+        self.lambda_a = float(lambda_a)
+        self.alpha_tau = float(alpha_tau)
 
         self.render_mode = render
         self.physicsClient = p.connect(p.GUI if render else p.DIRECT)
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         p.setGravity(0, 0, -9.8)
+
+        # passo de tempo usado pelo motor fisico (para potencia/energia)
+        params = p.getPhysicsEngineParameters()
+        self.dt = float(params.get("fixedTimeStep", 1.0 / 240.0))
 
         self.plane = p.loadURDF("plane.urdf")
         self.robot = p.loadURDF("two_link_arm.urdf", basePosition=[0, 0, 0])
@@ -77,22 +91,26 @@ class TwoLinkArmEnv(gym.Env):
             np.array(end_effector_pos[:2]) - np.array(self.target_pos)
         )
 
-        # lê torques aplicados nas duas juntas
+        # lê torques e velocidades aplicados nas duas juntas
         js = p.getJointStates(self.robot, [0, 1])
-        # appliedMotorTorque é o quarto elemento do tuple
+        # tuple: (pos, vel, reaction_forces, appliedMotorTorque)
         tau1 = abs(js[0][3])
         tau2 = abs(js[1][3])
-        tau_l1 = tau1 + tau2  # ||tau_t||_1 = |tau1| + |tau2|
+        tau_sum = tau1 + tau2  # soma de |tau1| + |tau2|
+
+        vel1 = js[0][1]
+        vel2 = js[1][1]
+        power = abs(tau1 * vel1) + abs(tau2 * vel2)
 
         # ====== REWARD ======
         # RL puro: -distância + penalidade leve de ação
-        lam_a = 0.001
+        lam_a = self.lambda_a
 
         if self.reward_mode == "pure":
             reward = -dist - lam_a * float(np.linalg.norm(action))
         else:  # "pirl"
-            alpha_tau = 0.0005  # ajuste fino depois
-            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_l1
+            alpha_tau = self.alpha_tau
+            reward = -dist - lam_a * float(np.linalg.norm(action)) - alpha_tau * tau_sum
 
         done = dist < self.success_threshold
 
@@ -103,7 +121,10 @@ class TwoLinkArmEnv(gym.Env):
             "is_success": float(dist < self.success_threshold),
             "tau1": tau1,
             "tau2": tau2,
-            "tau_l1": tau_l1,
+            "tau_sum": tau_sum,
+            "omega1": float(vel1),
+            "omega2": float(vel2),
+            "power": float(power),
         }
 
         return obs, reward, done, info

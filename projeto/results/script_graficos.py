@@ -204,7 +204,7 @@ plt.close(fig5)
 # ========= FIGURA 66: Boxplot Torques =========
 
 # Verifica rapidamente se as colunas esperadas existem
-required_cols = {"mode", "mean_tau_l1"}
+required_cols = {"mode", "mean_tau_sum"}
 missing = required_cols - set(df.columns)
 if missing:
     raise ValueError(
@@ -217,7 +217,7 @@ labels = ["RL puro", "PIRL"]
 
 data = []
 for m in modes:
-    sub = df[df["mode"] == m]["mean_tau_l1"].values
+    sub = df[df["mode"] == m]["mean_tau_sum"].values
     if len(sub) == 0:
         raise ValueError(f"Nenhum dado encontrado para mode='{m}'. Verifique o CSV.")
     data.append(sub)
