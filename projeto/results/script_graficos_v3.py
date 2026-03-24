@@ -6,13 +6,15 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # ========= CONFIGURAÇÕES GERAIS =========
-CSV_GLOB = r"eval_results_*.csv"
+# Por padrão, lê todos os CSVs de avaliação oficial gerados por run_experiments_seeds.py,
+# que têm o padrão: results/eval_official_seed<seed>_<seed>.csv
+CSV_GLOB = r"results/eval_official_seed*_*.csv"
 OUT_DIR = r"figs_resultados"
 TABELAS_DIR = r"tabelas"
 
 # ========= LABELS =========
 LABELS = {
-    "pure": "RL puro",
+    "pure": "RL puro (baseline)",
     "pirl": "PIRL (PI-reward)",
 }
 
@@ -30,14 +32,26 @@ def read_csv_auto(path):
 
 
 def extract_seed_from_filename(path):
-    """
-    Extrai a seed do nome do arquivo:
-    eval_results_0.csv -> 0
+    """Extrai a seed do nome do arquivo de avaliação.
+
+    Exemplos aceitos:
+    - eval_official_seed0_0.csv -> 0
+    - eval_official_seed3_3.csv -> 3
+
+    Mantém compatibilidade com o formato antigo "eval_results_0.csv".
     """
     name = os.path.basename(path)
-    match = re.search(r"eval_results_(\d+)\.csv$", name)
-    if match:
-        return int(match.group(1))
+
+    # Novo padrão: eval_official_seed<seed>_<seed>.csv
+    m_new = re.search(r"eval_official_seed(\d+)_\d+\.csv$", name)
+    if m_new:
+        return int(m_new.group(1))
+
+    # Padrão legado: eval_results_<seed>.csv
+    m_old = re.search(r"eval_results_(\d+)\.csv$", name)
+    if m_old:
+        return int(m_old.group(1))
+
     raise ValueError(f"Não foi possível extrair a seed do nome do arquivo: {name}")
 
 
@@ -92,7 +106,27 @@ def resumo_metrica(df_mode):
     d_mean, d_std = mean_std(df_mode["final_distance"])
     l_mean, l_std = mean_std(df_mode["length"])
     r_mean, r_std = mean_std(df_mode["return"])
-    return succ, d_mean, d_std, l_mean, l_std, r_mean, r_std
+
+    tau_mean = tau_std = np.nan
+    energy_mean = energy_std = np.nan
+    if "mean_tau_sum" in df_mode.columns:
+        tau_mean, tau_std = mean_std(df_mode["mean_tau_sum"])
+    if "energy" in df_mode.columns:
+        energy_mean, energy_std = mean_std(df_mode["energy"])
+
+    return (
+        succ,
+        d_mean,
+        d_std,
+        l_mean,
+        l_std,
+        r_mean,
+        r_std,
+        tau_mean,
+        tau_std,
+        energy_mean,
+        energy_std,
+    )
 
 
 # ========= LEITURA DE TODOS OS CSVs =========
@@ -136,7 +170,19 @@ df = df.dropna(
 summary_rows = []
 for mode in ["pure", "pirl"]:
     df_mode = df[df["mode_norm"] == mode]
-    succ, d_mean, d_std, l_mean, l_std, r_mean, r_std = resumo_metrica(df_mode)
+    (
+        succ,
+        d_mean,
+        d_std,
+        l_mean,
+        l_std,
+        r_mean,
+        r_std,
+        tau_mean,
+        tau_std,
+        energy_mean,
+        energy_std,
+    ) = resumo_metrica(df_mode)
 
     summary_rows.append(
         {
@@ -148,6 +194,10 @@ for mode in ["pure", "pirl"]:
             "length_std": l_std,
             "return_mean": r_mean,
             "return_std": r_std,
+            "tau_effort_mean": tau_mean,
+            "tau_effort_std": tau_std,
+            "energy_mean": energy_mean,
+            "energy_std": energy_std,
             "n_episodes": len(df_mode),
         }
     )
@@ -160,15 +210,22 @@ summary_df.to_csv(
 )
 
 # ========= RESUMO POR SEED =========
+agg_dict = {
+    "success_rate": ("success", "mean"),
+    "final_distance": ("final_distance", "mean"),
+    "episode_length": ("length", "mean"),
+    "episode_return": ("return", "mean"),
+    "n_episodes": ("episode", "count"),
+}
+
+if "mean_tau_sum" in df.columns:
+    agg_dict["tau_effort"] = ("mean_tau_sum", "mean")
+if "energy" in df.columns:
+    agg_dict["energy"] = ("energy", "mean")
+
 seed_summary = (
     df.groupby(["seed", "mode_norm"], as_index=False)
-    .agg(
-        success_rate=("success", "mean"),
-        final_distance=("final_distance", "mean"),
-        episode_length=("length", "mean"),
-        episode_return=("return", "mean"),
-        n_episodes=("episode", "count"),
-    )
+    .agg(**agg_dict)
     .sort_values(["seed", "mode_norm"])
 )
 
@@ -265,3 +322,70 @@ for f in csv_files:
 
 print("\nFiguras salvas em:", OUT_DIR)
 print("Tabelas salvas em:", TABELAS_DIR)
+
+# ========= FIGURA 3: RESUMO (SUCESSO, DISTÂNCIA, TORQUE, ENERGIA) =========
+
+has_tau = "tau_effort" in seed_summary.columns
+has_energy = "energy" in seed_summary.columns
+
+if has_tau or has_energy:
+    # Preparar dados por seed para cada métrica
+    pure_seed = seed_summary[seed_summary["mode_norm"] == "pure"]
+    pirl_seed = seed_summary[seed_summary["mode_norm"] == "pirl"]
+
+    metrics = [
+        ("success_rate", "Taxa de sucesso", (0.0, 1.0)),
+        ("final_distance", "Distância final (m)", None),
+    ]
+    if has_tau:
+        metrics.append(("tau_effort", "Esforço médio em torque", None))
+    if has_energy:
+        metrics.append(("energy", "Energia média por episódio", None))
+
+    n_plots = len(metrics)
+    n_rows = 2
+    n_cols = (n_plots + 1) // 2
+
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=(5 * n_cols, 4 * n_rows))
+    axes = np.atleast_1d(axes).flatten()
+
+    x = np.arange(2)
+    tick_labels = [LABELS["pure"], LABELS["pirl"]]
+
+    for ax, (col, ylabel, ylim) in zip(axes, metrics):
+        pure_vals = pure_seed[col].values
+        pirl_vals = pirl_seed[col].values
+
+        means = [np.nanmean(pure_vals), np.nanmean(pirl_vals)]
+        stds = [np.nanstd(pure_vals, ddof=1), np.nanstd(pirl_vals, ddof=1)]
+
+        ax.bar(x, means, yerr=stds, tick_label=tick_labels, capsize=5)
+        ax.set_ylabel(ylabel)
+        if ylim is not None:
+            ax.set_ylim(*ylim)
+
+    fig.tight_layout()
+    fig_path = os.path.join(OUT_DIR, "fig3_resumo_barras.pdf")
+    plt.savefig(fig_path, format="pdf", bbox_inches="tight")
+    plt.close(fig)
+
+    # ========= FIGURA 4: TRADE-OFF ENERGIA vs SUCESSO POR SEED =========
+    if has_energy:
+        fig4, ax4 = plt.subplots()
+
+        for mode in ["pure", "pirl"]:
+            sub = seed_summary[seed_summary["mode_norm"] == mode]
+            ax4.scatter(
+                sub["energy"].values,
+                sub["success_rate"].values,
+                label=LABELS[mode],
+            )
+
+        ax4.set_xlabel("Energia média por episódio")
+        ax4.set_ylabel("Taxa de sucesso")
+        ax4.set_ylim(0.0, 1.0)
+        ax4.legend()
+        fig4.tight_layout()
+        fig4_path = os.path.join(OUT_DIR, "fig4_tradeoff_energia_sucesso.pdf")
+        plt.savefig(fig4_path, format="pdf", bbox_inches="tight")
+        plt.close(fig4)
