@@ -1,0 +1,9 @@
+anotações experimentos dissertação.md
+
+__pycache__/
+*.pyc
+
+AGENTS.md
+RELATORIO_two_link_arm_PI_rewards.md
+
+test_500_episodes.md
