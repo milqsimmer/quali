@@ -17,6 +17,25 @@ LABELS = {
 }
 
 
+# Espaço de trabalho aproximado do braço (disco de raio l1+l2)
+# No env atual, l1 = 0.5, l2 = 0.5 -> raio ~ 1.0 m
+WORKSPACE_RADIUS = 1.0
+WORKSPACE_MARGIN = 0.1
+
+
+def set_workspace_limits(ax: plt.Axes) -> None:
+    """Define limites fixos para o espaço de trabalho do braço.
+
+    Isso evita o "zoom automático" apenas na trajetória da ponta
+    e facilita comparar diferentes episódios entre si.
+    """
+    r = WORKSPACE_RADIUS
+    m = WORKSPACE_MARGIN
+    ax.set_xlim(-m, r + m)
+    ax.set_ylim(-r - m, r + m)
+    ax.set_aspect("equal", adjustable="box")
+
+
 def ensure_dirs() -> None:
     os.makedirs(OUT_DIR_SINGLE, exist_ok=True)
     os.makedirs(OUT_DIR_PAIRED, exist_ok=True)
@@ -94,24 +113,24 @@ def plot_single_episode(df: pd.DataFrame, mode: str, seed: int, tag: str) -> Non
         ax2.scatter(
             tip_x[start_idx],
             tip_y[start_idx],
-            marker="o",
-            color="green",
+            marker="x",
+            color="orange",
             label="início",
         )
         ax2.scatter(
             tip_x[end_idx],
             tip_y[end_idx],
-            marker="*",
-            color="orange",
+            marker="x",
+            color="green",
             label="fim",
         )
 
         # alvo
-        ax2.scatter(target_x, target_y, marker="x", color="red", label="alvo")
+        ax2.scatter(target_x, target_y, marker="*", color="red", label="alvo")
 
         ax2.set_xlabel("Tip x (m)")
         ax2.set_ylabel("Tip y (m)")
-        ax2.set_aspect("equal", adjustable="box")
+        set_workspace_limits(ax2)
         ax2.legend()
         ax2.set_title(f"Trajetória da ponta – {title_mode}, seed={seed}, {tag}")
         fig2.tight_layout()
@@ -122,7 +141,9 @@ def plot_single_episode(df: pd.DataFrame, mode: str, seed: int, tag: str) -> Non
         plt.close(fig2)
 
 
-def plot_paired_episodes(df_pure: pd.DataFrame, df_pirl: pd.DataFrame, seed: int, tag: str) -> None:
+def plot_paired_episodes(
+    df_pure: pd.DataFrame, df_pirl: pd.DataFrame, seed: int, tag: str
+) -> None:
     """Compara pure vs pirl para o mesmo seed/tag em três curvas."""
 
     step_pure = df_pure["step"].values
@@ -234,7 +255,7 @@ def plot_paired_episodes(df_pure: pd.DataFrame, df_pirl: pd.DataFrame, seed: int
 
         ax2.set_xlabel("Tip x (m)")
         ax2.set_ylabel("Tip y (m)")
-        ax2.set_aspect("equal", adjustable="box")
+        set_workspace_limits(ax2)
         ax2.legend()
         ax2.set_title(f"Trajetória da ponta – seed={seed}, {tag}")
         fig2.tight_layout()
