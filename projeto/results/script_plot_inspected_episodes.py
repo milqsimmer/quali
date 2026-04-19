@@ -61,12 +61,65 @@ def plot_single_episode(df: pd.DataFrame, mode: str, seed: int, tag: str) -> Non
 
     title_mode = LABELS.get(mode, mode)
     fig.suptitle(f"{title_mode} – seed={seed}, {tag}")
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.tight_layout(rect=(0, 0.03, 1, 0.95))
 
     fname = f"mode_{mode}_seed{seed}_{tag}.pdf"
     out_path = os.path.join(OUT_DIR_SINGLE, fname)
     plt.savefig(out_path, format="pdf", bbox_inches="tight")
     plt.close(fig)
+
+    # Trajetória da ponta no plano (tip_x, tip_y), se disponível
+    if "tip_x" in df.columns and "tip_y" in df.columns:
+        tip_x = df["tip_x"].values
+        tip_y = df["tip_y"].values
+
+        # alvo (assumindo constante ao longo do episodio)
+        target_x = df["target_x"].values[0]
+        target_y = df["target_y"].values[0]
+
+        # indices validos (sem NaN)
+        valid = np.isfinite(tip_x) & np.isfinite(tip_y)
+        if valid.any():
+            start_idx = int(np.argmax(valid))
+            end_idx = int(len(valid) - 1 - np.argmax(valid[::-1]))
+        else:
+            start_idx = end_idx = 0
+
+        fig2, ax2 = plt.subplots()
+
+        # trajetoria completa
+        ax2.plot(tip_x, tip_y, "-", label="trajetória da ponta")
+
+        # inicio e fim
+        ax2.scatter(
+            tip_x[start_idx],
+            tip_y[start_idx],
+            marker="o",
+            color="green",
+            label="início",
+        )
+        ax2.scatter(
+            tip_x[end_idx],
+            tip_y[end_idx],
+            marker="*",
+            color="orange",
+            label="fim",
+        )
+
+        # alvo
+        ax2.scatter(target_x, target_y, marker="x", color="red", label="alvo")
+
+        ax2.set_xlabel("Tip x (m)")
+        ax2.set_ylabel("Tip y (m)")
+        ax2.set_aspect("equal", adjustable="box")
+        ax2.legend()
+        ax2.set_title(f"Trajetória da ponta – {title_mode}, seed={seed}, {tag}")
+        fig2.tight_layout()
+
+        fname2 = f"mode_{mode}_seed{seed}_{tag}_tip_traj.pdf"
+        out_path2 = os.path.join(OUT_DIR_SINGLE, fname2)
+        plt.savefig(out_path2, format="pdf", bbox_inches="tight")
+        plt.close(fig2)
 
 
 def plot_paired_episodes(df_pure: pd.DataFrame, df_pirl: pd.DataFrame, seed: int, tag: str) -> None:
@@ -105,12 +158,91 @@ def plot_paired_episodes(df_pure: pd.DataFrame, df_pirl: pd.DataFrame, seed: int
 
     title = f"Comparação por episódio – seed={seed}, {tag}"
     fig.suptitle(title)
-    fig.tight_layout(rect=[0, 0.03, 1, 0.95])
+    fig.tight_layout(rect=(0, 0.03, 1, 0.95))
 
     fname = f"seed{seed}_{tag}_paired.pdf"
     out_path = os.path.join(OUT_DIR_PAIRED, fname)
     plt.savefig(out_path, format="pdf", bbox_inches="tight")
     plt.close(fig)
+
+    # Trajetória da ponta (pure vs pirl) se disponível
+    if "tip_x" in df_pure.columns and "tip_x" in df_pirl.columns:
+        tipx_pure = df_pure["tip_x"].values
+        tipy_pure = df_pure["tip_y"].values
+        tipx_pirl = df_pirl["tip_x"].values
+        tipy_pirl = df_pirl["tip_y"].values
+
+        # alvo (assumindo igual para pure/pirl e constante ao longo do episodio)
+        target_x = df_pure["target_x"].values[0]
+        target_y = df_pure["target_y"].values[0]
+
+        # indices validos
+        valid_pure = np.isfinite(tipx_pure) & np.isfinite(tipy_pure)
+        valid_pirl = np.isfinite(tipx_pirl) & np.isfinite(tipy_pirl)
+
+        def start_end_idx(valid_arr: np.ndarray) -> tuple[int, int]:
+            if valid_arr.any():
+                si = int(np.argmax(valid_arr))
+                ei = int(len(valid_arr) - 1 - np.argmax(valid_arr[::-1]))
+            else:
+                si = ei = 0
+            return si, ei
+
+        s_pure, e_pure = start_end_idx(valid_pure)
+        s_pirl, e_pirl = start_end_idx(valid_pirl)
+
+        fig2, ax2 = plt.subplots()
+
+        # trajetorias
+        ax2.plot(tipx_pure, tipy_pure, "-", label=LABELS.get("pure", "pure"))
+        ax2.plot(tipx_pirl, tipy_pirl, "-", label=LABELS.get("pirl", "pirl"))
+
+        # inicios
+        ax2.scatter(
+            tipx_pure[s_pure],
+            tipy_pure[s_pure],
+            marker="o",
+            color="green",
+            label="início (pure)",
+        )
+        ax2.scatter(
+            tipx_pirl[s_pirl],
+            tipy_pirl[s_pirl],
+            marker="o",
+            color="darkgreen",
+            label="início (pirl)",
+        )
+
+        # fins
+        ax2.scatter(
+            tipx_pure[e_pure],
+            tipy_pure[e_pure],
+            marker="*",
+            color="orange",
+            label="fim (pure)",
+        )
+        ax2.scatter(
+            tipx_pirl[e_pirl],
+            tipy_pirl[e_pirl],
+            marker="*",
+            color="red",
+            label="fim (pirl)",
+        )
+
+        # alvo
+        ax2.scatter(target_x, target_y, marker="x", color="black", label="alvo")
+
+        ax2.set_xlabel("Tip x (m)")
+        ax2.set_ylabel("Tip y (m)")
+        ax2.set_aspect("equal", adjustable="box")
+        ax2.legend()
+        ax2.set_title(f"Trajetória da ponta – seed={seed}, {tag}")
+        fig2.tight_layout()
+
+        fname2 = f"seed{seed}_{tag}_tip_traj_paired.pdf"
+        out_path2 = os.path.join(OUT_DIR_PAIRED, fname2)
+        plt.savefig(out_path2, format="pdf", bbox_inches="tight")
+        plt.close(fig2)
 
 
 def main() -> None:

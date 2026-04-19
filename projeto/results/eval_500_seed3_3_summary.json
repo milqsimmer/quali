@@ -1,0 +1,32 @@
+[
+  {
+    "mode": "pure",
+    "seed": 3,
+    "episodes": 100,
+    "success_rate": 0.23,
+    "mean_final_dist": 0.47997914928228425,
+    "std_final_dist": 0.3057831419353659,
+    "mean_ep_len": 390.42,
+    "std_ep_len": 200.53943153405015,
+    "mean_tau_effort": 4.8931747041104305,
+    "std_tau_effort": 7.389632604385621,
+    "median_tau_effort": 1.1104927407557255,
+    "mean_energy": 21.867307792434367,
+    "std_energy": 6.220604987962604
+  },
+  {
+    "mode": "pirl",
+    "seed": 3,
+    "episodes": 100,
+    "success_rate": 0.57,
+    "mean_final_dist": 0.11414049966640143,
+    "std_final_dist": 0.10590810948813266,
+    "mean_ep_len": 231.24,
+    "std_ep_len": 233.55539471397358,
+    "mean_tau_effort": 7.677190965229816,
+    "std_tau_effort": 7.178150119730084,
+    "median_tau_effort": 7.842715346384905,
+    "mean_energy": 16.20990546897709,
+    "std_energy": 8.550949151082703
+  }
+]
