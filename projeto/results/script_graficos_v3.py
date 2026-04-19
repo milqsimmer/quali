@@ -375,17 +375,91 @@ if has_tau or has_energy:
 
         for mode in ["pure", "pirl"]:
             sub = seed_summary[seed_summary["mode_norm"] == mode]
-            ax4.scatter(
-                sub["energy"].values,
-                sub["success_rate"].values,
-                label=LABELS[mode],
-            )
+            xs = sub["energy"].values
+            ys = sub["success_rate"].values
+            seeds_local = sub["seed"].values
+
+            ax4.scatter(xs, ys, label=LABELS[mode])
+
+            # adiciona o número da seed próximo a cada ponto
+            # pequeno deslocamento vertical para evitar sobreposição com o marcador
+            for x, y, s in zip(xs, ys, seeds_local):
+                ax4.text(x, y + 0.02, str(s), fontsize=8, ha="center", va="bottom")
 
         ax4.set_xlabel("Energia média por episódio")
         ax4.set_ylabel("Taxa de sucesso")
         ax4.set_ylim(0.0, 1.0)
         ax4.legend()
+        # pequena nota explicativa para os rótulos numéricos
+        ax4.text(
+            0.02,
+            0.02,
+            "Números indicam seeds",
+            transform=ax4.transAxes,
+            fontsize=8,
+            ha="left",
+            va="bottom",
+        )
         fig4.tight_layout()
         fig4_path = os.path.join(OUT_DIR, "fig4_tradeoff_energia_sucesso.pdf")
         plt.savefig(fig4_path, format="pdf", bbox_inches="tight")
         plt.close(fig4)
+
+    # ========= FIGURA 5: RESUMO (SUCESSO + DISTÂNCIA) =========
+    # Mesma ideia da figura 3, mas apenas com métricas de tarefa.
+    metrics_sd = [
+        ("success_rate", "Taxa de sucesso", (0.0, 1.0)),
+        ("final_distance", "Distância final (m)", None),
+    ]
+
+    n_plots_sd = len(metrics_sd)
+    fig_sd, axes_sd = plt.subplots(1, n_plots_sd, figsize=(5 * n_plots_sd, 4))
+    axes_sd = np.atleast_1d(axes_sd).flatten()
+
+    x = np.arange(2)
+    tick_labels = [LABELS["pure"], LABELS["pirl"]]
+
+    for ax, (col, ylabel, ylim) in zip(axes_sd, metrics_sd):
+        pure_vals = pure_seed[col].values
+        pirl_vals = pirl_seed[col].values
+
+        means = [np.nanmean(pure_vals), np.nanmean(pirl_vals)]
+        stds = [np.nanstd(pure_vals, ddof=1), np.nanstd(pirl_vals, ddof=1)]
+
+        ax.bar(x, means, yerr=stds, tick_label=tick_labels, capsize=5)
+        ax.set_ylabel(ylabel)
+        if ylim is not None:
+            ax.set_ylim(*ylim)
+
+    fig_sd.tight_layout()
+    fig_sd_path = os.path.join(OUT_DIR, "fig5_resumo_sucesso_distancia.pdf")
+    plt.savefig(fig_sd_path, format="pdf", bbox_inches="tight")
+    plt.close(fig_sd)
+
+    # ========= FIGURA 6: RESUMO (TORQUE + ENERGIA) =========
+    # Apenas se as duas métricas estiverem disponíveis.
+    if has_tau and has_energy:
+        metrics_te = [
+            ("tau_effort", "Esforço médio em torque", None),
+            ("energy", "Energia média por episódio", None),
+        ]
+
+        fig_te, axes_te = plt.subplots(1, 2, figsize=(10, 4))
+        axes_te = np.atleast_1d(axes_te).flatten()
+
+        for ax, (col, ylabel, ylim) in zip(axes_te, metrics_te):
+            pure_vals = pure_seed[col].values
+            pirl_vals = pirl_seed[col].values
+
+            means = [np.nanmean(pure_vals), np.nanmean(pirl_vals)]
+            stds = [np.nanstd(pure_vals, ddof=1), np.nanstd(pirl_vals, ddof=1)]
+
+            ax.bar(x, means, yerr=stds, tick_label=tick_labels, capsize=5)
+            ax.set_ylabel(ylabel)
+            if ylim is not None:
+                ax.set_ylim(*ylim)
+
+        fig_te.tight_layout()
+        fig_te_path = os.path.join(OUT_DIR, "fig6_resumo_torque_energia.pdf")
+        plt.savefig(fig_te_path, format="pdf", bbox_inches="tight")
+        plt.close(fig_te)
