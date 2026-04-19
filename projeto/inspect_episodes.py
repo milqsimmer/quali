@@ -43,11 +43,19 @@ def rollout_episodes(
         base_env = base_env.env
     dt = getattr(base_env, "dt", 1.0 / 240.0)
 
+    # limite de torque (forca) por junta usado no ambiente
+    torque_max = 20.0
+    sat_tol = 0.99  # considera saturado a partir de 99% do maximo
+
     all_eps: List[Dict[str, object]] = []
 
     for ep in range(episodes):
         obs = env.reset()
         done = False
+
+        # distancia inicial do alvo em relacao à base
+        th1_0, th2_0, tx0, ty0 = map(float, obs)
+        target_r0 = float(np.hypot(tx0, ty0))
 
         step_idx: List[int] = []
         theta1: List[float] = []
@@ -64,6 +72,11 @@ def rollout_episodes(
         omega2_list: List[float] = []
         power_list: List[float] = []
         cum_energy_list: List[float] = []
+        tip_x_list: List[float] = []
+        tip_y_list: List[float] = []
+        sat1_list: List[bool] = []
+        sat2_list: List[bool] = []
+        sat_any_list: List[bool] = []
         rewards: List[float] = []
         dones: List[bool] = []
 
@@ -71,6 +84,46 @@ def rollout_episodes(
         ep_len = 0
         ep_tau_sum_total = 0.0
         ep_energy = 0.0
+        sat1_count = 0
+        sat2_count = 0
+        sat_any_count = 0
+
+        # registra estado inicial (passo 0) incluindo posicao da ponta
+        try:
+            ee0 = base_env._get_end_effector_pos()  # type: ignore[attr-defined]
+            tip_x0, tip_y0 = float(ee0[0]), float(ee0[1])
+        except Exception:
+            tip_x0 = tip_y0 = float("nan")
+
+        step_idx.append(0)
+        theta1.append(th1_0)
+        theta2.append(th2_0)
+        target_x.append(tx0)
+        target_y.append(ty0)
+        act0.append(0.0)
+        act1.append(0.0)
+
+        # distancia inicial ponta-alvo
+        if np.isfinite(tip_x0) and np.isfinite(tip_y0):
+            d0 = float(np.hypot(tip_x0 - tx0, tip_y0 - ty0))
+        else:
+            d0 = float("nan")
+
+        distances.append(d0)
+        tau1_list.append(0.0)
+        tau2_list.append(0.0)
+        tau_sum_list.append(0.0)
+        omega1_list.append(0.0)
+        omega2_list.append(0.0)
+        power_list.append(0.0)
+        cum_energy_list.append(0.0)
+        tip_x_list.append(tip_x0)
+        tip_y_list.append(tip_y0)
+        sat1_list.append(False)
+        sat2_list.append(False)
+        sat_any_list.append(False)
+        rewards.append(0.0)
+        dones.append(False)
 
         while not done:
             # obs = [theta1, theta2, target_x, target_y]
@@ -95,6 +148,18 @@ def rollout_episodes(
             if not np.isnan(power):
                 ep_energy += power * dt
 
+            # saturacao de torque por junta
+            sat1 = not np.isnan(tau1) and abs(tau1) >= sat_tol * torque_max
+            sat2 = not np.isnan(tau2) and abs(tau2) >= sat_tol * torque_max
+            sat_any = sat1 or sat2
+
+            if sat1:
+                sat1_count += 1
+            if sat2:
+                sat2_count += 1
+            if sat_any:
+                sat_any_count += 1
+
             step_idx.append(ep_len)
             theta1.append(th1)
             theta2.append(th2)
@@ -110,16 +175,32 @@ def rollout_episodes(
             omega2_list.append(omega2)
             power_list.append(power)
             cum_energy_list.append(ep_energy)
+            sat1_list.append(sat1)
+            sat2_list.append(sat2)
+            sat_any_list.append(sat_any)
             rewards.append(float(reward))
             dones.append(bool(done))
+
+            # posicao da ponta (tip) via ambiente base, se disponivel
+            try:
+                ee_pos = base_env._get_end_effector_pos()  # type: ignore[attr-defined]
+                tip_x_list.append(float(ee_pos[0]))
+                tip_y_list.append(float(ee_pos[1]))
+            except Exception:
+                tip_x_list.append(float("nan"))
+                tip_y_list.append(float("nan"))
 
         final_dist = float(info.get("distance", np.nan))
         success = int(final_dist < 0.05)
 
         if ep_len > 0:
             tau_effort = ep_tau_sum_total / ep_len
+            sat1_rate = sat1_count / ep_len
+            sat2_rate = sat2_count / ep_len
+            sat_any_rate = sat_any_count / ep_len
         else:
             tau_effort = float("nan")
+            sat1_rate = sat2_rate = sat_any_rate = float("nan")
 
         summary = {
             "mode": mode,
@@ -132,6 +213,13 @@ def rollout_episodes(
             "tau_effort": tau_effort,
             "tau_sum_total": ep_tau_sum_total,
             "energy": ep_energy,
+            "target_radius": target_r0,
+            "torque_sat1_count": sat1_count,
+            "torque_sat2_count": sat2_count,
+            "torque_sat_any_count": sat_any_count,
+            "torque_sat1_rate": sat1_rate,
+            "torque_sat2_rate": sat2_rate,
+            "torque_sat_any_rate": sat_any_rate,
         }
 
         traj = {
@@ -150,6 +238,11 @@ def rollout_episodes(
             "omega2": omega2_list,
             "power": power_list,
             "cumulative_energy": cum_energy_list,
+            "tip_x": tip_x_list,
+            "tip_y": tip_y_list,
+            "sat1": sat1_list,
+            "sat2": sat2_list,
+            "sat_any": sat_any_list,
             "reward": rewards,
             "done": dones,
         }
@@ -230,6 +323,13 @@ def save_episode_csv(
         "tau_effort",
         "tau_sum_total",
         "energy",
+        "target_radius",
+        "torque_sat1_count",
+        "torque_sat2_count",
+        "torque_sat_any_count",
+        "torque_sat1_rate",
+        "torque_sat2_rate",
+        "torque_sat_any_rate",
         "step",
         "theta1",
         "theta2",
@@ -245,6 +345,11 @@ def save_episode_csv(
         "omega2",
         "power",
         "cumulative_energy",
+        "tip_x",
+        "tip_y",
+        "sat1",
+        "sat2",
+        "sat_any",
         "reward",
         "done",
     ]
@@ -268,6 +373,13 @@ def save_episode_csv(
                 "tau_effort": summary["tau_effort"],
                 "tau_sum_total": summary["tau_sum_total"],
                 "energy": summary["energy"],
+                "target_radius": summary["target_radius"],
+                "torque_sat1_count": summary["torque_sat1_count"],
+                "torque_sat2_count": summary["torque_sat2_count"],
+                "torque_sat_any_count": summary["torque_sat_any_count"],
+                "torque_sat1_rate": summary["torque_sat1_rate"],
+                "torque_sat2_rate": summary["torque_sat2_rate"],
+                "torque_sat_any_rate": summary["torque_sat_any_rate"],
                 "step": traj["step"][i],
                 "theta1": traj["theta1"][i],
                 "theta2": traj["theta2"][i],
@@ -283,6 +395,11 @@ def save_episode_csv(
                 "omega2": traj["omega2"][i],
                 "power": traj["power"][i],
                 "cumulative_energy": traj["cumulative_energy"][i],
+                "tip_x": traj["tip_x"][i],
+                "tip_y": traj["tip_y"][i],
+                "sat1": traj["sat1"][i],
+                "sat2": traj["sat2"][i],
+                "sat_any": traj["sat_any"][i],
                 "reward": traj["reward"][i],
                 "done": traj["done"][i],
             }
