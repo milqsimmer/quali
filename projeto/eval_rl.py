@@ -42,6 +42,15 @@ def evaluate(
         base_env = base_env.env
     dt = getattr(base_env, "dt", 1.0 / 240.0)
 
+    # posicao inicial aproximada da ponta quando theta1=theta2=0
+    try:
+        l1 = float(getattr(base_env, "l1", 0.5))
+        l2 = float(getattr(base_env, "l2", 0.5))
+    except Exception:
+        l1, l2 = 0.5, 0.5
+    tip_init_x = l1 + l2
+    tip_init_y = 0.0
+
     ep_rows = []
     succ = 0
     dists, lens = [], []
@@ -51,6 +60,11 @@ def evaluate(
     for ep in range(episodes):
         obs = env.reset()
         done = False
+        # distancia inicial do alvo (raio no plano xy) e em relacao a ponta inicial
+        _, _, tx0, ty0 = map(float, obs)
+        target_r0 = float(np.hypot(tx0, ty0))
+        tip_init_dist0 = float(np.hypot(tx0 - tip_init_x, ty0 - tip_init_y))
+
         ep_ret, ep_len = 0.0, 0
         ep_tau_sum = 0.0  # soma_t ||tau_t||_1 no episódio
         ep_energy = 0.0  # soma_t power_t * dt no episódio
@@ -109,6 +123,8 @@ def evaluate(
                 "mean_tau_sum": E_i,  # esforço médio em torque
                 "tau_sum_total": ep_tau_sum,  # soma de ||tau_t||_1 no episódio
                 "energy": ep_energy,
+                "target_radius": target_r0,
+                "tip_init_dist": tip_init_dist0,
             }
         )
 
@@ -148,6 +164,8 @@ def save_csv(csv_path: str, rows: list, summaries: list):
         "mean_tau_sum",
         "tau_sum_total",
         "energy",
+        "target_radius",
+        "tip_init_dist",
     ]
     with open(csv_path, "w", newline="", encoding="utf-8") as f:
         w = csv.DictWriter(f, fieldnames=fieldnames)
