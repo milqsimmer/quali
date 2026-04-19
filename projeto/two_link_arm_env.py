@@ -68,8 +68,12 @@ class TwoLinkArmEnv(gym.Env):
 
         self.target_pos = self._sample_target()
 
+        # coloca as juntas exatamente em (theta1, theta2) e zera velocidades
+        p.resetJointState(self.robot, 0, self.theta1, targetVelocity=0.0)
+        p.resetJointState(self.robot, 1, self.theta2, targetVelocity=0.0)
+
+        # configura os motores de posição para manter esses ângulos
         self._apply_angles(self.theta1, self.theta2)
-        p.stepSimulation()
 
         self._create_target_visual()
 
