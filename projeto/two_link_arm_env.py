@@ -81,13 +81,23 @@ class TwoLinkArmEnv(gym.Env):
         return obs
 
     def step(self, action):
-        # atualiza ângulos com incremento da ação
-        self.theta1 = np.clip(self.theta1 + action[0], -np.pi, np.pi)
-        self.theta2 = np.clip(self.theta2 + action[1], -np.pi, np.pi)
+        # interpreta a ação como incremento em ângulo sobre o estado ATUAL
+        # (estado atual é sempre sincronizado com o Bullet via getJointStates)
+        th1_target = np.clip(self.theta1 + action[0], -np.pi, np.pi)
+        th2_target = np.clip(self.theta2 + action[1], -np.pi, np.pi)
 
-        # aplica ângulos e avança simulação
-        self._apply_angles(self.theta1, self.theta2)
+        # aplica ângulos alvo e avança simulação física
+        self._apply_angles(th1_target, th2_target)
         p.stepSimulation()
+
+        # lê estado REAL das juntas após o passo
+        js = p.getJointStates(self.robot, [0, 1])
+        joint1_pos, joint1_vel, _, joint1_tau = js[0]
+        joint2_pos, joint2_vel, _, joint2_tau = js[1]
+
+        # sincroniza estado interno com o Bullet
+        self.theta1 = float(joint1_pos)
+        self.theta2 = float(joint2_pos)
 
         # distância ponta–alvo no plano (x, y)
         end_effector_pos = self._get_end_effector_pos()
@@ -95,15 +105,13 @@ class TwoLinkArmEnv(gym.Env):
             np.array(end_effector_pos[:2]) - np.array(self.target_pos)
         )
 
-        # lê torques e velocidades aplicados nas duas juntas
-        js = p.getJointStates(self.robot, [0, 1])
-        # tuple: (pos, vel, reaction_forces, appliedMotorTorque)
-        tau1 = abs(js[0][3])
-        tau2 = abs(js[1][3])
+        # torques e velocidades físicos
+        tau1 = abs(float(joint1_tau))
+        tau2 = abs(float(joint2_tau))
         tau_sum = tau1 + tau2  # soma de |tau1| + |tau2|
 
-        vel1 = js[0][1]
-        vel2 = js[1][1]
+        vel1 = float(joint1_vel)
+        vel2 = float(joint2_vel)
         power = abs(tau1 * vel1) + abs(tau2 * vel2)
 
         # ====== REWARD ======
@@ -126,9 +134,9 @@ class TwoLinkArmEnv(gym.Env):
             "tau1": tau1,
             "tau2": tau2,
             "tau_sum": tau_sum,
-            "omega1": float(vel1),
-            "omega2": float(vel2),
-            "power": float(power),
+            "omega1": vel1,
+            "omega2": vel2,
+            "power": power,
         }
 
         return obs, reward, done, info
