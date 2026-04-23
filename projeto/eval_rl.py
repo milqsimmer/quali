@@ -90,6 +90,14 @@ def evaluate(
 
         final_dist = float(last_info.get("distance", np.nan))
 
+        # se o ambiente fornecer acumuladores por episódio, usa-os
+        ep_tau_sum_env = float(last_info.get("tau_sum_total", np.nan))
+        ep_energy_env = float(last_info.get("episode_energy", np.nan))
+        if not np.isnan(ep_tau_sum_env):
+            ep_tau_sum = ep_tau_sum_env
+        if not np.isnan(ep_energy_env):
+            ep_energy = ep_energy_env
+
         if final_dist < 0.05:
             succ += 1
 

@@ -73,7 +73,13 @@ env = TimeLimit(env, max_episode_steps=200)
 env = Monitor(
     env,
     filename=monitor_path,
-    info_keywords=("is_success", "final_distance"),
+    info_keywords=(
+        "is_success",
+        "final_distance",
+        "tau_sum_total",
+        "episode_energy",
+        "episode_mean_tau_sum",
+    ),
 )
 
 model = PPO(

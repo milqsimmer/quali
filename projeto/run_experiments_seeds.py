@@ -17,8 +17,12 @@ def main() -> None:
             "usando train_rl.py e eval_rl.py."
         )
     )
-    parser.add_argument("--first-seed", type=int, default=0, help="Seed inicial (inclusive).")
-    parser.add_argument("--last-seed", type=int, default=5, help="Seed final (inclusive).")
+    parser.add_argument(
+        "--first-seed", type=int, default=0, help="Seed inicial (inclusive)."
+    )
+    parser.add_argument(
+        "--last-seed", type=int, default=4, help="Seed final (inclusive)."
+    )
     parser.add_argument(
         "--steps",
         type=int,
@@ -28,7 +32,7 @@ def main() -> None:
     parser.add_argument(
         "--episodes",
         type=int,
-        default=100,
+        default=200,
         help="Numero de episodios por seed na avaliacao.",
     )
     parser.add_argument(

@@ -1,3 +1,22 @@
+"""Ferramenta de inspeção detalhada de episódios.
+
+Este script carrega modelos treinados (pure/pirl) e executa vários
+episódios adicionais por (modo, seed), registrando passo a passo:
+  - estados (theta1, theta2, alvo), ações e recompensas,
+  - distância ponta–alvo, torques, velocidades, potência, energia,
+  - posição real da ponta (tip_x, tip_y) e saturação de torque.
+
+Para cada (modo, seed), ele seleciona episódios "representativos"
+(sucesso de baixa/alta energia e falha de alta energia) e salva
+CSV detalhados em results/episodios_inspecao/.
+
+Uso recomendado (exemplo):
+
+    python inspect_episodes.py --mode both --first-seed 0 --last-seed 4 \
+        --episodes-per-config 20 --max-steps 200
+
+"""
+
 import argparse
 import os
 import sys
@@ -254,7 +273,7 @@ def rollout_episodes(
 
 
 def pick_representative_episodes(
-    episodes: List[Dict[str, object]]
+    episodes: List[Dict[str, object]],
 ) -> Dict[str, Dict[str, object]]:
     """Seleciona episodios representativos a partir de um lote.
 
@@ -406,7 +425,9 @@ def save_episode_csv(
             writer.writerow(row)
 
 
-def parse_seeds_arg(seeds_str: str | None, first: int | None, last: int | None) -> List[int]:
+def parse_seeds_arg(
+    seeds_str: str | None, first: int | None, last: int | None
+) -> List[int]:
     if seeds_str:
         return [int(s.strip()) for s in seeds_str.split(",") if s.strip()]
     if first is not None and last is not None:

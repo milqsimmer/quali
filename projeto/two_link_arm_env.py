@@ -60,6 +60,12 @@ class TwoLinkArmEnv(gym.Env):
         self.target_pos = None
         self.state = None
         self.target_id = None
+
+        # acumuladores por episódio (para métricas agregadas)
+        self.ep_tau_sum_total = 0.0
+        self.ep_energy = 0.0
+        self.ep_steps = 0
+
         self.reset()
 
     def reset(self):
@@ -67,6 +73,11 @@ class TwoLinkArmEnv(gym.Env):
         self.theta2 = 0.0
 
         self.target_pos = self._sample_target()
+
+         # zera acumuladores por episódio
+        self.ep_tau_sum_total = 0.0
+        self.ep_energy = 0.0
+        self.ep_steps = 0
 
         # coloca as juntas exatamente em (theta1, theta2) e zera velocidades
         p.resetJointState(self.robot, 0, self.theta1, targetVelocity=0.0)
@@ -114,6 +125,13 @@ class TwoLinkArmEnv(gym.Env):
         vel2 = float(joint2_vel)
         power = abs(tau1 * vel1) + abs(tau2 * vel2)
 
+        # atualiza acumuladores por episódio
+        if not np.isnan(tau_sum):
+            self.ep_tau_sum_total += tau_sum
+        if not np.isnan(power):
+            self.ep_energy += power * self.dt
+        self.ep_steps += 1
+
         # ====== REWARD ======
         # RL puro: -distância + penalidade leve de ação
         lam_a = self.lambda_a
@@ -126,6 +144,10 @@ class TwoLinkArmEnv(gym.Env):
 
         done = dist < self.success_threshold
 
+        mean_tau = (
+            self.ep_tau_sum_total / self.ep_steps if self.ep_steps > 0 else float("nan")
+        )
+
         obs = self._get_obs()
         info = {
             "distance": float(dist),
@@ -137,6 +159,10 @@ class TwoLinkArmEnv(gym.Env):
             "omega1": vel1,
             "omega2": vel2,
             "power": power,
+            # métricas acumuladas por episódio
+            "tau_sum_total": float(self.ep_tau_sum_total),
+            "episode_energy": float(self.ep_energy),
+            "episode_mean_tau_sum": float(mean_tau),
         }
 
         return obs, reward, done, info
