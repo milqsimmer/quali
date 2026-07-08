@@ -50,6 +50,54 @@ parser.add_argument(
     default=0.0005,
     help="Peso da penalidade de torque na recompensa (modo pirl).",
 )
+parser.add_argument(
+    "--learning-rate",
+    type=float,
+    default=2e-4,
+    dest="learning_rate",
+    help="Taxa de aprendizado do otimizador PPO (default: 2e-4).",
+)
+parser.add_argument(
+    "--n-steps",
+    type=int,
+    default=2048,
+    dest="n_steps",
+    help="Numero de steps por rollout antes de cada atualizacao PPO.",
+)
+parser.add_argument(
+    "--batch-size",
+    type=int,
+    default=128,
+    dest="batch_size",
+    help="Tamanho do minibatch usado nas atualizacoes PPO.",
+)
+parser.add_argument(
+    "--n-epochs",
+    type=int,
+    default=20,
+    dest="n_epochs",
+    help="Numero de epocas de otimizacao por rollout.",
+)
+parser.add_argument(
+    "--gamma",
+    type=float,
+    default=0.99,
+    help="Fator de desconto para retornos (gamma).",
+)
+parser.add_argument(
+    "--gae-lambda",
+    type=float,
+    default=0.95,
+    dest="gae_lambda",
+    help="Parametro lambda do GAE (Generalized Advantage Estimation).",
+)
+parser.add_argument(
+    "--clip-range",
+    type=float,
+    default=0.2,
+    dest="clip_range",
+    help="Intervalo de clipping da perda PPO.",
+)
 args = parser.parse_args()
 
 set_global_seed(args.seed)
@@ -87,13 +135,13 @@ model = PPO(
     env,
     verbose=1,
     seed=args.seed,
-    learning_rate=3e-4,
-    n_steps=2048,
-    batch_size=256,
-    n_epochs=10,
-    gamma=0.99,
-    gae_lambda=0.95,
-    clip_range=0.2,
+    learning_rate=args.learning_rate,
+    n_steps=args.n_steps,
+    batch_size=args.batch_size,
+    n_epochs=args.n_epochs,
+    gamma=args.gamma,
+    gae_lambda=args.gae_lambda,
+    clip_range=args.clip_range,
 )
 
 model.learn(total_timesteps=args.steps)
