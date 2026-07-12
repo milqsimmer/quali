@@ -1,5 +1,6 @@
 import os
 import glob
+import re
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -12,7 +13,7 @@ LABELS = {
     "pirl": "PIRL (PI-reward)",
 }
 
-WINDOW = 20  # média móvel em episódios
+WINDOW = 100  # média móvel em episódios
 
 
 def read_monitor_file(path):
@@ -34,8 +35,14 @@ def load_all_monitors(mode):
     for path in files:
         df = read_monitor_file(path)
 
-        seed_str = os.path.basename(os.path.dirname(path)).replace("seed_", "")
-        seed = int(seed_str)
+        seed_dir = os.path.basename(os.path.dirname(path))
+        seed_str = seed_dir.replace("seed_", "")
+
+        match = re.match(r"(\d+)", seed_str)
+        if not match:
+            raise ValueError(f"Nome de diretório de seed inesperado: {seed_dir}")
+
+        seed = int(match.group(1))
 
         # colunas padrão do Monitor:
         # r = retorno do episódio
