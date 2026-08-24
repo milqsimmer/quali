@@ -27,47 +27,133 @@ Ao invés de usar o solver interno de IK do PyBullet, a solução dos ângulos �
 
 ## 📂 Estrutura
 ```
-├── main.py # Código principal da simulação 
-├── two_joint_robot.urdf # Modelo URDF do braço 
-├── README.md # Este arquivo 
-├── requirements.txt # Dependências do projeto
+├── two_link_arm_env.py      # Ambiente Gym customizado para o braço 2-DOF
+├── train_rl.py              # Script de treino PPO (modes: pure, pirl)
+├── eval_rl.py               # Script de avaliação dos modelos treinados
+├── scripts_test/
+│   ├── demo_inicial.py      # Demo inicial em PyBullet (sem Gym/RL)
+│   ├── test_env.py          # Teste de IK + TwoLinkArmEnv (distância ponta–alvo)
+│   ├── test_tip_visual.py   # Debug visual da ponta/alvo com overlays
+│   └── sanity_check.py      # Sanidade de Gym + NumPy
+├── figs_env/                # Figuras do ambiente (layout, espaço de trabalho, etc.)
+├── figs_resultados/         # Gráficos/resultados de avaliação
+├── figs_treino/             # Curvas de treino (recompensa, etc.)
+├── runs_pure/               # Saídas de treino PPO (modo "pure")
+├── runs_pirl/               # Saídas de treino PPO (modo "pirl")
+├── results/                 # CSVs/JSONs de avaliação gerados por eval_rl.py
+├── two_link_arm.urdf        # Modelo URDF do braço
+├── requirements.txt         # Dependências do projeto
+├── requirements_legacy.txt  # Versão alternativa de dependências (legado)
+├── AGENTS.md                # Guia para agentes de código
+└── README.md                # Este arquivo
 ```
 
 ## ▶️ Como rodar
 
-1. Instale as dependências:
+1. Instale as dependências (recomendado usar virtualenv):
    ```bash
    pip install -r requirements.txt
-    ```
-2. Execute a simulação:
-  ```python
-  python main.py
-  ```
+   ```
+
+2. Simulação / demonstração inicial (PyBullet puro, sem Gym/RL):
+   ```bash
+   python scripts_test/demo_inicial.py
+   ```
+
+3. Testes rápidos e debug do ambiente:
+   - Sanidade de Gym + NumPy:
+     ```bash
+     python scripts_test/sanity_check.py
+     ```
+   - Teste de IK + ambiente (vários alvos aleatórios):
+     ```bash
+     python scripts_test/test_env.py
+     ```
+   - Debug visual da ponta e do alvo (overlays na GUI do PyBullet):
+     ```bash
+     python scripts_test/test_tip_visual.py
+     ```
 
 ## 🧠 Requisitos
 - Python 3.8+
+- Gym 0.21 (API legada: `reset() -> obs`, `step() -> (obs, reward, done, info)`)
 - PyBullet
 - NumPy
+- stable_baselines3 (PPO)
 
 
-## Novo
-1. rodar treinos e results:
-> treino
-  ```python
-  python train_rl.py --mode pure
-  python train_rl.py --mode pirl
-  ```
-> eval
-  ```python
-  python eval_rl.py --mode pure --episodes 20 --print-episodes --render
-  ```
-  ou
-  ```python
-  python eval_rl.py --mode both --episodes 100
-  ```
+## Treino e avaliação de RL
 
-2. Se o braço mal se mexer: aumente force no POSITION_CONTROL (em _apply_angles) ou reduza a escala de ação (±0.05).
+### Treino (PPO)
 
-3. Se trepidar: reduza a escala de ação (ex.: ±0.05) e aumente max_episode_steps para 300 (apenas teste).
+1. Modo "pure" (distância + penalidade leve de ação):
+   ```bash
+   python train_rl.py --mode pure --seed 0 --steps 300000
+   ```
 
-4. Se quiser “apimentar” o PIRL sem esforço: adicione um termo de suavidade (ex.: beta * (|Δθ1| + |Δθ2|)).
+2. Modo "pirl" (distância + ação + penalidade em torque):
+   ```bash
+   python train_rl.py --mode pirl --seed 0 --steps 300000
+   ```
+
+3. Exemplos de sweep de seeds (para experimentos mais completos):
+   ```bash
+   # pure
+   python train_rl.py --mode pure --seed 0 --steps 300000
+   python train_rl.py --mode pure --seed 1 --steps 300000
+   python train_rl.py --mode pure --seed 2 --steps 300000
+   python train_rl.py --mode pure --seed 3 --steps 300000
+   python train_rl.py --mode pure --seed 4 --steps 300000
+
+   # pirl
+   python train_rl.py --mode pirl --seed 0 --steps 300000
+   python train_rl.py --mode pirl --seed 1 --steps 300000
+   python train_rl.py --mode pirl --seed 2 --steps 300000
+   python train_rl.py --mode pirl --seed 3 --steps 300000
+   python train_rl.py --mode pirl --seed 4 --steps 300000
+   ```
+
+4. Saídas dos treinos:
+   - `runs_pure/seed_<seed>/monitor.csv` e `runs_pure/seed_<seed>/ppo_model_<seed>.zip`.
+   - `runs_pirl/seed_<seed>/monitor.csv` e `runs_pirl/seed_<seed>/ppo_model_<seed>.zip`.
+
+
+### Avaliação
+
+1. Avaliar um único modo:
+   ```bash
+   python eval_rl.py --mode pure --episodes 20 --print-episodes --render
+   ```
+   ou
+   ```bash
+   python eval_rl.py --mode pirl --episodes 100
+   ```
+
+2. Comparar diretamente os dois modos:
+   ```bash
+   python eval_rl.py --mode both --episodes 100 --out results/eval_results --seed 0
+   ```
+
+3. Exemplo de avaliação com foco em torque/“esforço”:
+   ```bash
+   python eval_rl.py --mode both --episodes 100 --out results_torque.csv
+   ```
+
+4. Saídas das avaliações:
+   - `results/eval_results_<seed>.csv` (métricas por episódio).
+   - `results/eval_results_<seed>_summary.json` (resumo agregado em JSON).
+
+
+## Ajustes finos e dicas
+
+- Se o braço mal se mexer durante o treino:
+  - Aumente `force` no `POSITION_CONTROL` em `_apply_angles` dentro de `two_link_arm_env.py`,
+    ou reduza a escala de ação (por exemplo, de ±0.1 para ±0.05).
+
+- Se o movimento trepidar demais:
+  - Reduza a escala de ação (ex.: ±0.05).
+  - Aumente `max_episode_steps` no `TimeLimit` para 300 em `train_rl.py` (apenas para testes).
+
+- Para “apimentar” o modo PIRL:
+  - Adicione um termo extra de suavidade na recompensa, algo como
+    `beta * (|Δθ1| + |Δθ2|)` por passo, se quiser penalizar variações bruscas de ângulo.
